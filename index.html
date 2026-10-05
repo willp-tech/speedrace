@@ -11,72 +11,88 @@
 
   <div id="hud">
 
-    <div class="top-left">
-      <div class="title">GITHUB FAN RACING</div>
-      <div id="trackName">Forest Run</div>
+    <div id="title">
+      GITHUB FAN RACING
+      <span id="trackName">Forest Run</span>
     </div>
 
-    <div class="top-right">
-      <button id="nextTrack">NEXT TRACK</button>
-      <button id="exitGame">EXIT</button>
+    <div id="topButtons">
+      <button id="nextTrackBtn">NEXT TRACK</button>
+      <button id="exitBtn">EXIT</button>
     </div>
 
     <div id="timer">00:00.000</div>
 
-    <div id="checkpointCounter">0/0</div>
+    <div id="message"></div>
 
-    <div id="message">PRESS W TO START</div>
+    <div id="speed">
+      <span id="speedValue">0</span> KM/H
+    </div>
 
-    <div id="speed">0 km/h</div>
+    <div id="checkpoint">
+      0/0
+    </div>
+
+    <div id="controls">
+      W — ACCELERATE<br>
+      S — BRAKE / REVERSE<br>
+      A / D — STEER<br>
+      R — RESET<br>
+      SPACE — RACE AGAIN
+    </div>
 
   </div>
 
 
-  <div id="carControls">
+  <div id="customization">
+
+    <h3>CAR COLORS</h3>
 
     <label>
-      Car color
-      <input id="carColor" type="color" value="#ff2020">
+      BODY
+      <input type="color" id="bodyColor" value="#e10600">
     </label>
 
     <label>
-      Front wing
-      <input id="frontWingColor" type="color" value="#111111">
+      FRONT WING
+      <input type="color" id="frontWingColor" value="#111111">
     </label>
 
     <label>
-      Rear wing
-      <input id="rearWingColor" type="color" value="#111111">
+      REAR WING
+      <input type="color" id="rearWingColor" value="#111111">
     </label>
 
   </div>
 
 
-  <div id="finishPanel" class="hidden">
+  <div id="finishScreen">
 
-    <h1>TRACK COMPLETE!</h1>
+    <div class="panel">
 
-    <p id="finalTime"></p>
+      <h1>FINISH!</h1>
 
-    <p>SPACE = race again with your ghost</p>
+      <p id="finishTime">
+        TIME: 00:00.000
+      </p>
 
-    <button id="panelNext">
-      NEXT TRACK
-    </button>
+      <button id="raceAgainBtn">
+        RACE AGAIN
+      </button>
+
+      <button id="finishNextBtn">
+        NEXT TRACK
+      </button>
+
+      <button id="finishExitBtn">
+        EXIT
+      </button>
+
+    </div>
 
   </div>
 
 
-  <div id="exitPanel" class="hidden">
+  <div id="exitScreen">
 
-    <h1>RACE EXITED</h1>
-
-    <p>Press SPACE to return to the race.</p>
-
-  </div>
-
-
-  <script type="module" src="script.js"></script>
-
-</body>
-</html>
+    <div class="panel">
