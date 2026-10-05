@@ -1,98 +1,2446 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GitHub Fan Racing</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitHub Fan Racing</title>
+
+<style>
+*{
+    box-sizing:border-box;
+}
+
+html,body{
+    margin:0;
+    padding:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#000;
+    font-family:Arial,Helvetica,sans-serif;
+    color:white;
+}
+
+canvas{
+    display:block;
+}
+
+#hud{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    z-index:10;
+}
+
+#title{
+    position:absolute;
+    top:18px;
+    left:20px;
+    font-size:22px;
+    font-weight:900;
+    letter-spacing:2px;
+    text-shadow:0 2px 6px #000;
+}
+
+#trackName{
+    display:block;
+    margin-top:5px;
+    font-size:13px;
+    opacity:.8;
+}
+
+#topButtons{
+    position:absolute;
+    top:18px;
+    right:18px;
+    display:flex;
+    gap:8px;
+    pointer-events:auto;
+}
+
+button{
+    border:1px solid rgba(255,255,255,.3);
+    border-radius:5px;
+    padding:10px 15px;
+    background:rgba(10,10,10,.85);
+    color:white;
+    font-weight:bold;
+    letter-spacing:1px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#333;
+}
+
+#timer{
+    position:absolute;
+    top:75px;
+    left:50%;
+    transform:translateX(-50%);
+    font-family:monospace;
+    font-size:30px;
+    font-weight:bold;
+    text-shadow:0 2px 6px #000;
+}
+
+#message{
+    position:absolute;
+    top:130px;
+    left:50%;
+    transform:translateX(-50%);
+    font-size:22px;
+    font-weight:bold;
+    text-shadow:0 2px 6px #000;
+    text-align:center;
+    white-space:nowrap;
+}
+
+#speed{
+    position:absolute;
+    bottom:20px;
+    left:20px;
+    font-family:monospace;
+    font-size:22px;
+    font-weight:bold;
+    text-shadow:0 2px 6px #000;
+}
+
+#speedValue{
+    font-size:42px;
+}
+
+#checkpoint{
+    position:absolute;
+    right:20px;
+    bottom:20px;
+    font-size:26px;
+    font-weight:bold;
+    text-shadow:0 2px 6px #000;
+}
+
+#controls{
+    position:absolute;
+    left:50%;
+    bottom:20px;
+    transform:translateX(-50%);
+    text-align:center;
+    font-size:11px;
+    line-height:1.5;
+    opacity:.75;
+    text-shadow:0 2px 6px #000;
+}
+
+#customization{
+    position:fixed;
+    right:20px;
+    top:120px;
+    width:180px;
+    padding:14px;
+    z-index:20;
+    background:rgba(0,0,0,.65);
+    border:1px solid rgba(255,255,255,.3);
+    border-radius:8px;
+}
+
+#customization h3{
+    margin:0 0 10px;
+    font-size:13px;
+}
+
+#customization label{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:8px;
+    font-size:11px;
+}
+
+#customization input{
+    width:50px;
+    height:25px;
+    padding:0;
+    border:0;
+}
+
+.overlay{
+    position:fixed;
+    inset:0;
+    z-index:100;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    background:rgba(0,0,0,.6);
+    backdrop-filter:blur(4px);
+}
+
+.panel{
+    width:350px;
+    padding:30px;
+    text-align:center;
+    background:rgba(10,10,10,.96);
+    border:1px solid rgba(255,255,255,.3);
+    border-radius:12px;
+    box-shadow:0 20px 70px #000;
+}
+
+.panel h1{
+    margin-top:0;
+    font-size:40px;
+}
+
+.panel p{
+    font-family:monospace;
+    font-size:22px;
+}
+
+.panel button{
+    width:100%;
+    margin-top:10px;
+}
+
+@media(max-width:700px){
+
+    #customization{
+        right:10px;
+        top:105px;
+        width:150px;
+    }
+
+    #title{
+        font-size:16px;
+    }
+
+    #timer{
+        font-size:22px;
+    }
+
+    #controls{
+        font-size:8px;
+    }
+}
+</style>
 </head>
 
 <body>
 
-  <div id="hud">
+<div id="hud">
 
     <div id="title">
-      GITHUB FAN RACING
-      <span id="trackName">Forest Run</span>
+        GITHUB FAN RACING
+        <span id="trackName">FOREST RUN</span>
     </div>
 
     <div id="topButtons">
-      <button id="nextTrackBtn">NEXT TRACK</button>
-      <button id="exitBtn">EXIT</button>
+        <button id="nextTrack">NEXT TRACK</button>
+        <button id="exitButton">EXIT</button>
     </div>
 
     <div id="timer">00:00.000</div>
 
-    <div id="message"></div>
+    <div id="message">PRESS W TO START</div>
 
     <div id="speed">
-      <span id="speedValue">0</span> KM/H
+        <span id="speedValue">0</span> KM/H
     </div>
 
-    <div id="checkpoint">
-      0/0
-    </div>
+    <div id="checkpoint">0/10</div>
 
     <div id="controls">
-      W — ACCELERATE<br>
-      S — BRAKE / REVERSE<br>
-      A / D — STEER<br>
-      R — RESET<br>
-      SPACE — RACE AGAIN
+        W — ACCELERATE<br>
+        S — BRAKE / REVERSE<br>
+        A / D — STEER<br>
+        R — RESET<br>
+        SPACE — RACE AGAIN
     </div>
 
-  </div>
+</div>
 
 
-  <div id="customization">
+<div id="customization">
 
     <h3>CAR COLORS</h3>
 
     <label>
-      BODY
-      <input type="color" id="bodyColor" value="#e10600">
+        BODY
+        <input type="color" id="bodyColor" value="#e10600">
     </label>
 
     <label>
-      FRONT WING
-      <input type="color" id="frontWingColor" value="#111111">
+        FRONT WING
+        <input type="color" id="frontColor" value="#111111">
     </label>
 
     <label>
-      REAR WING
-      <input type="color" id="rearWingColor" value="#111111">
+        REAR WING
+        <input type="color" id="rearColor" value="#111111">
     </label>
 
-  </div>
+</div>
 
 
-  <div id="finishScreen">
+<div id="finishScreen" class="overlay">
 
     <div class="panel">
 
-      <h1>FINISH!</h1>
+        <h1>FINISH!</h1>
 
-      <p id="finishTime">
-        TIME: 00:00.000
-      </p>
+        <p id="finalTime">TIME: 00:00.000</p>
 
-      <button id="raceAgainBtn">
-        RACE AGAIN
-      </button>
+        <button id="raceAgain">
+            RACE AGAIN
+        </button>
 
-      <button id="finishNextBtn">
-        NEXT TRACK
-      </button>
+        <button id="finishNext">
+            NEXT TRACK
+        </button>
 
-      <button id="finishExitBtn">
-        EXIT
-      </button>
+        <button id="finishExit">
+            EXIT
+        </button>
 
     </div>
 
-  </div>
+</div>
 
 
-  <div id="exitScreen">
+<div id="exitScreen" class="overlay">
 
     <div class="panel">
+
+        <h1>RACE EXITED</h1>
+
+        <button id="returnRace">
+            RETURN TO RACE
+        </button>
+
+    </div>
+
+</div>
+
+
+<script type="module">
+
+import * as THREE from
+"https://cdn.jsdelivr.net/npm/three@0.161/build/three.module.js";
+
+
+/* =====================================================
+   SCENE
+===================================================== */
+
+const scene =
+    new THREE.Scene();
+
+scene.background =
+    new THREE.Color(0x87b8dc);
+
+scene.fog =
+    new THREE.Fog(
+        0x87b8dc,
+        150,
+        900
+    );
+
+
+const camera =
+    new THREE.PerspectiveCamera(
+        70,
+        innerWidth / innerHeight,
+        .1,
+        3000
+    );
+
+
+const renderer =
+    new THREE.WebGLRenderer({
+        antialias:true
+    });
+
+renderer.setSize(
+    innerWidth,
+    innerHeight
+);
+
+renderer.setPixelRatio(
+    Math.min(devicePixelRatio,2)
+);
+
+renderer.shadowMap.enabled = true;
+
+document.body.appendChild(
+    renderer.domElement
+);
+
+
+/* =====================================================
+   LIGHTING
+===================================================== */
+
+const ambient =
+    new THREE.HemisphereLight(
+        0xffffff,
+        0x444444,
+        1.5
+    );
+
+scene.add(ambient);
+
+
+const sun =
+    new THREE.DirectionalLight(
+        0xffffff,
+        2.3
+    );
+
+sun.position.set(
+    100,
+    250,
+    100
+);
+
+sun.castShadow = true;
+
+sun.shadow.mapSize.width = 2048;
+sun.shadow.mapSize.height = 2048;
+
+scene.add(sun);
+
+
+/* =====================================================
+   GAME
+===================================================== */
+
+const game = {
+
+    track:0,
+
+    curve:null,
+
+    road:null,
+
+    car:null,
+
+    ghost:null,
+
+    ghostData:null,
+
+    checkpoints:[],
+
+    checkpoint:0,
+
+    running:false,
+
+    finished:false,
+
+    startTime:0,
+
+    elapsed:0,
+
+    speed:0,
+
+    steering:0,
+
+    keys:{},
+
+    recorded:[],
+
+    smoke:[],
+
+    skid:[],
+
+    body:"#e10600",
+
+    front:"#111111",
+
+    rear:"#111111"
+
+};
+
+
+/* =====================================================
+   TRACKS
+===================================================== */
+
+const tracks = [
+
+{
+    name:"FOREST RUN",
+    theme:"forest",
+    width:16,
+
+    points:[
+        [0,0,0],
+        [80,0,-100],
+        [160,12,-180],
+        [60,25,-280],
+        [-80,10,-350],
+        [-170,0,-280],
+        [-220,30,-150],
+        [-160,50,-30],
+        [-40,70,40],
+        [100,45,100],
+        [220,20,40],
+        [300,0,-60],
+        [250,-10,-180],
+        [140,0,-260],
+        [40,20,-330]
+    ]
+},
+
+{
+    name:"DESERT SNAKE",
+    theme:"desert",
+    width:17,
+
+    points:[
+        [0,0,0],
+        [120,0,-70],
+        [230,-5,-20],
+        [310,15,80],
+        [260,35,200],
+        [100,15,260],
+        [-70,0,230],
+        [-150,20,100],
+        [-100,45,-20],
+        [20,60,-80],
+        [160,40,-150],
+        [270,15,-260],
+        [160,0,-350],
+        [0,-5,-320]
+    ]
+},
+
+{
+    name:"SNOW MOUNTAIN",
+    theme:"snow",
+    width:15,
+
+    points:[
+        [0,0,0],
+        [60,25,-80],
+        [130,70,-130],
+        [180,120,-70],
+        [140,150,40],
+        [30,180,100],
+        [-90,160,50],
+        [-160,120,-30],
+        [-130,80,-130],
+        [-40,50,-200],
+        [70,20,-250],
+        [180,0,-330]
+    ]
+},
+
+{
+    name:"BANKED CANYON",
+    theme:"canyon",
+    width:18,
+
+    points:[
+        [0,0,0],
+        [100,0,-80],
+        [210,20,-100],
+        [300,45,-30],
+        [270,70,80],
+        [170,90,120],
+        [40,70,80],
+        [-70,45,0],
+        [-110,20,-120],
+        [-30,0,-220],
+        [100,-10,-280],
+        [230,0,-340]
+    ]
+},
+
+{
+    name:"COASTAL SPEEDWAY",
+    theme:"coast",
+    width:17,
+
+    points:[
+        [0,0,0],
+        [100,5,-80],
+        [220,0,-50],
+        [300,15,50],
+        [260,30,160],
+        [120,20,220],
+        [-20,0,180],
+        [-120,20,80],
+        [-70,40,-40],
+        [40,60,-120],
+        [180,40,-220],
+        [300,10,-300]
+    ]
+}
+
+];
+
+
+/* =====================================================
+   MATERIAL
+===================================================== */
+
+function material(color){
+
+    return new THREE.MeshStandardMaterial({
+        color:color,
+        roughness:.8
+    });
+
+}
+
+
+/* =====================================================
+   CURVE
+===================================================== */
+
+function makeCurve(track){
+
+    return new THREE.CatmullRomCurve3(
+
+        track.points.map(
+            p =>
+            new THREE.Vector3(
+                p[0],
+                p[1],
+                p[2]
+            )
+        ),
+
+        false,
+        "catmullrom",
+        .5
+    );
+
+}
+
+
+/* =====================================================
+   ROAD
+===================================================== */
+
+function makeRoad(curve,width){
+
+    const segments=600;
+
+    const positions=[];
+    const indices=[];
+
+    for(
+        let i=0;
+        i<=segments;
+        i++
+    ){
+
+        const t=i/segments;
+
+        const p=
+            curve.getPointAt(t);
+
+        const tangent=
+            curve
+            .getTangentAt(t)
+            .normalize();
+
+        const side=
+            new THREE.Vector3(
+                -tangent.z,
+                0,
+                tangent.x
+            ).normalize();
+
+
+        const left=
+            p.clone().add(
+                side.clone()
+                .multiplyScalar(width/2)
+            );
+
+        const right=
+            p.clone().add(
+                side.clone()
+                .multiplyScalar(-width/2)
+            );
+
+
+        positions.push(
+            left.x,left.y,left.z,
+            right.x,right.y,right.z
+        );
+
+    }
+
+
+    for(
+        let i=0;
+        i<segments;
+        i++
+    ){
+
+        const a=i*2;
+
+        indices.push(
+            a,
+            a+2,
+            a+1,
+
+            a+1,
+            a+2,
+            a+3
+        );
+
+    }
+
+
+    const geometry=
+        new THREE.BufferGeometry();
+
+    geometry.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(
+            positions,
+            3
+        )
+    );
+
+    geometry.setIndex(indices);
+
+    geometry.computeVertexNormals();
+
+
+    const road=
+        new THREE.Mesh(
+            geometry,
+            material(0x303030)
+        );
+
+    road.receiveShadow=true;
+
+    scene.add(road);
+
+    return road;
+
+}
+
+
+/* =====================================================
+   GRASS / GROUND
+===================================================== */
+
+function makeGround(color){
+
+    const ground=
+        new THREE.Mesh(
+            new THREE.PlaneGeometry(
+                3000,
+                3000
+            ),
+            material(color)
+        );
+
+    ground.rotation.x=
+        -Math.PI/2;
+
+    ground.position.y=-3;
+
+    ground.receiveShadow=true;
+
+    scene.add(ground);
+
+}
+
+
+/* =====================================================
+   TREES
+===================================================== */
+
+function tree(x,y,z){
+
+    const group=
+        new THREE.Group();
+
+
+    const trunk=
+        new THREE.Mesh(
+            new THREE.CylinderGeometry(
+                1,
+                1.5,
+                8,
+                8
+            ),
+            material(0x593719)
+        );
+
+    trunk.position.y=4;
+
+
+    const leaves=
+        new THREE.Mesh(
+            new THREE.ConeGeometry(
+                6,
+                15,
+                8
+            ),
+            material(0x155b25)
+        );
+
+    leaves.position.y=12;
+
+
+    group.add(
+        trunk,
+        leaves
+    );
+
+    group.position.set(
+        x,y,z
+    );
+
+    scene.add(group);
+
+}
+
+
+/* =====================================================
+   CACTUS
+===================================================== */
+
+function cactus(x,y,z){
+
+    const group=
+        new THREE.Group();
+
+
+    const body=
+        new THREE.Mesh(
+            new THREE.CylinderGeometry(
+                1.5,
+                1.8,
+                10,
+                8
+            ),
+            material(0x267d35)
+        );
+
+    body.position.y=5;
+
+    group.add(body);
+
+
+    const arm=
+        new THREE.Mesh(
+            new THREE.CylinderGeometry(
+                .7,
+                .8,
+                5,
+                8
+            ),
+            material(0x267d35)
+        );
+
+    arm.rotation.z=
+        Math.PI/2;
+
+    arm.position.set(
+        2.5,
+        5,
+        0
+    );
+
+    group.add(arm);
+
+
+    group.position.set(
+        x,y,z
+    );
+
+    scene.add(group);
+
+}
+
+
+/* =====================================================
+   ROCK
+===================================================== */
+
+function rock(x,y,z){
+
+    const r=
+        new THREE.Mesh(
+            new THREE.DodecahedronGeometry(
+                4+Math.random()*8
+            ),
+            material(0x70432e)
+        );
+
+    r.position.set(
+        x,
+        y+4,
+        z
+    );
+
+    r.castShadow=true;
+
+    scene.add(r);
+
+}
+
+
+/* =====================================================
+   SCENERY
+===================================================== */
+
+function buildScenery(track){
+
+    let groundColor=0x31783a;
+
+    if(track.theme==="desert")
+        groundColor=0xc7954c;
+
+    if(track.theme==="snow")
+        groundColor=0xdcecff;
+
+    if(track.theme==="canyon")
+        groundColor=0x8b593d;
+
+    if(track.theme==="coast")
+        groundColor=0x70a94c;
+
+
+    makeGround(groundColor);
+
+
+    for(
+        let i=0;
+        i<140;
+        i++
+    ){
+
+        const t=Math.random();
+
+        const p=
+            game.curve.getPointAt(t);
+
+        const tangent=
+            game.curve
+            .getTangentAt(t)
+            .normalize();
+
+        const side=
+            new THREE.Vector3(
+                -tangent.z,
+                0,
+                tangent.x
+            ).normalize();
+
+
+        const distance=
+            25+
+            Math.random()*90;
+
+        const pos=
+            p.clone().add(
+                side.multiplyScalar(
+                    Math.random()>.5
+                    ? distance
+                    : -distance
+                )
+            );
+
+
+        if(track.theme==="forest")
+            tree(pos.x,pos.y,pos.z);
+
+        else if(track.theme==="desert")
+            cactus(pos.x,pos.y,pos.z);
+
+        else if(track.theme==="snow")
+            tree(pos.x,pos.y,pos.z);
+
+        else
+            rock(pos.x,pos.y,pos.z);
+
+    }
+
+}
+
+
+/* =====================================================
+   GATE
+===================================================== */
+
+function gate(position,tangent,color){
+
+    const group=
+        new THREE.Group();
+
+
+    const left=
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                .8,
+                10,
+                .8
+            ),
+            material(color)
+        );
+
+    left.position.x=-7;
+    left.position.y=5;
+
+
+    const right=
+        left.clone();
+
+    right.position.x=7;
+
+
+    const top=
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                14,
+                .8,
+                .8
+            ),
+            material(color)
+        );
+
+    top.position.y=10;
+
+
+    group.add(
+        left,
+        right,
+        top
+    );
+
+
+    group.position.copy(
+        position
+    );
+
+
+    group.rotation.y=
+        Math.atan2(
+            tangent.x,
+            tangent.z
+        );
+
+
+    scene.add(group);
+
+    return group;
+
+}
+
+
+/* =====================================================
+   CAR
+===================================================== */
+
+function makeCar(){
+
+    const car=
+        new THREE.Group();
+
+
+    const body=
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                2.2,
+                .55,
+                5.2
+            ),
+            material(game.body)
+        );
+
+    body.position.y=.75;
+
+    car.add(body);
+
+    car.userData.body=body;
+
+
+    const nose=
+        new THREE.Mesh(
+            new THREE.ConeGeometry(
+                .85,
+                2.6,
+                4
+            ),
+            material(game.body)
+        );
+
+    nose.rotation.z=
+        -Math.PI/2;
+
+    nose.rotation.y=
+        Math.PI/4;
+
+    nose.position.set(
+        0,
+        .72,
+        -3.2
+    );
+
+    car.add(nose);
+
+
+    const cockpit=
+        new THREE.Mesh(
+            new THREE.SphereGeometry(
+                .75,
+                16,
+                8
+            ),
+            material(0x090909)
+        );
+
+    cockpit.scale.set(
+        1,
+        .5,
+        1.3
+    );
+
+    cockpit.position.set(
+        0,
+        1.1,
+        -.2
+    );
+
+    car.add(cockpit);
+
+
+    const front=
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                3.6,
+                .12,
+                .65
+            ),
+            material(game.front)
+        );
+
+    front.position.set(
+        0,
+        .45,
+        -4
+    );
+
+    car.add(front);
+
+    car.userData.front=front;
+
+
+    const rear=
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                3.4,
+                .18,
+                .6
+            ),
+            material(game.rear)
+        );
+
+    rear.position.set(
+        0,
+        1.65,
+        2
+    );
+
+    car.add(rear);
+
+    car.userData.rear=rear;
+
+
+    const wheels=[];
+
+    const wheelPositions=[
+        [-1.25,.42,-1.9],
+        [1.25,.42,-1.9],
+        [-1.25,.42,1.8],
+        [1.25,.42,1.8]
+    ];
+
+
+    for(
+        const p of wheelPositions
+    ){
+
+        const wheel=
+            new THREE.Mesh(
+                new THREE.CylinderGeometry(
+                    .48,
+                    .48,
+                    .35,
+                    16
+                ),
+                material(0x050505)
+            );
+
+        wheel.rotation.z=
+            Math.PI/2;
+
+        wheel.position.set(
+            p[0],
+            p[1],
+            p[2]
+        );
+
+        car.add(wheel);
+
+        wheels.push(wheel);
+
+    }
+
+
+    car.userData.wheels=wheels;
+
+
+    const brakeLights=[];
+
+
+    for(
+        const x of [-.8,.8]
+    ){
+
+        const light=
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    .45,
+                    .12,
+                    .08
+                ),
+                new THREE.MeshBasicMaterial({
+                    color:0x330000
+                })
+            );
+
+        light.position.set(
+            x,
+            .9,
+            2.65
+        );
+
+        car.add(light);
+
+        brakeLights.push(light);
+
+    }
+
+
+    car.userData.brakeLights=
+        brakeLights;
+
+
+    scene.add(car);
+
+    return car;
+
+}
+
+
+/* =====================================================
+   LOAD TRACK
+===================================================== */
+
+function clearWorld(){
+
+    while(scene.children.length>3){
+
+        scene.remove(
+            scene.children[3]
+        );
+
+    }
+
+}
+
+
+function loadTrack(index){
+
+    game.track=
+        (index+tracks.length)%
+        tracks.length;
+
+
+    const track=
+        tracks[game.track];
+
+
+    document.getElementById(
+        "trackName"
+    ).textContent=
+        track.name;
+
+
+    clearWorld();
+
+
+    game.curve=
+        makeCurve(track);
+
+
+    game.road=
+        makeRoad(
+            game.curve,
+            track.width
+        );
+
+
+    buildScenery(track);
+
+
+    game.checkpoints=[];
+
+
+    for(
+        let i=1;
+        i<=9;
+        i++
+    ){
+
+        const t=
+            i/10;
+
+        const position=
+            game.curve.getPointAt(t);
+
+        const tangent=
+            game.curve
+            .getTangentAt(t)
+            .normalize();
+
+        const g=
+            gate(
+                position,
+                tangent,
+                0xffff00
+            );
+
+        game.checkpoints.push({
+            position:position,
+            gate:g,
+            finish:false
+        });
+
+    }
+
+
+    const finishPosition=
+        game.curve.getPointAt(.99);
+
+    const finishTangent=
+        game.curve
+        .getTangentAt(.99)
+        .normalize();
+
+
+    const finish=
+        gate(
+            finishPosition,
+            finishTangent,
+            0xff0000
+        );
+
+
+    game.checkpoints.push({
+        position:finishPosition,
+        gate:finish,
+        finish:true
+    });
+
+
+    document.getElementById(
+        "checkpoint"
+    ).textContent=
+        "0/"+game.checkpoints.length;
+
+
+    game.ghostData=
+        JSON.parse(
+            localStorage.getItem(
+                "ghost_"+game.track
+            ) || "null"
+        );
+
+
+    if(game.ghost){
+
+        scene.remove(
+            game.ghost
+        );
+
+        game.ghost=null;
+
+    }
+
+
+    if(game.ghostData){
+
+        game.ghost=makeCar();
+
+        game.ghost.traverse(
+            object=>{
+
+                if(object.material){
+
+                    object.material=
+                        object.material.clone();
+
+                    object.material.transparent=true;
+
+                    object.material.opacity=.2;
+
+                }
+
+            }
+        );
+
+    }
+
+
+    resetCar();
+
+}
+
+
+/* =====================================================
+   RESET
+===================================================== */
+
+function resetCar(){
+
+    const p=
+        game.curve.getPointAt(0);
+
+    const tangent=
+        game.curve
+        .getTangentAt(0)
+        .normalize();
+
+
+    game.car.position.copy(p);
+
+    game.car.position.y+=.7;
+
+    game.car.rotation.y=
+        Math.atan2(
+            tangent.x,
+            tangent.z
+        );
+
+
+    game.speed=0;
+
+    game.running=false;
+
+    game.finished=false;
+
+    game.elapsed=0;
+
+    game.checkpoint=0;
+
+    game.recorded=[];
+
+
+    document.getElementById(
+        "message"
+    ).textContent=
+        "PRESS W TO START";
+
+
+    document.getElementById(
+        "checkpoint"
+    ).textContent=
+        "0/"+game.checkpoints.length;
+
+}
+
+
+/* =====================================================
+   INPUT
+===================================================== */
+
+addEventListener(
+    "keydown",
+    e=>{
+
+        game.keys[e.code]=true;
+
+
+        if(e.code==="KeyR"){
+
+            resetCar();
+
+        }
+
+
+        if(
+            e.code==="KeyW" &&
+            !game.running &&
+            !game.finished
+        ){
+
+            startRace();
+
+        }
+
+
+        if(
+            e.code==="Space" &&
+            game.finished
+        ){
+
+            raceAgain();
+
+        }
+
+    }
+);
+
+
+addEventListener(
+    "keyup",
+    e=>{
+
+        game.keys[e.code]=false;
+
+    }
+);
+
+
+/* =====================================================
+   START
+===================================================== */
+
+function startRace(){
+
+    game.running=true;
+
+    game.startTime=
+        performance.now();
+
+    document.getElementById(
+        "message"
+    ).textContent="";
+
+}
+
+
+/* =====================================================
+   CAR UPDATE
+===================================================== */
+
+function updateCar(dt){
+
+    if(!game.running)
+        return;
+
+
+    const accelerating=
+        game.keys["KeyW"];
+
+    const braking=
+        game.keys["KeyS"];
+
+
+    if(accelerating)
+        game.speed+=70*dt;
+    else
+        game.speed-=12*dt;
+
+
+    if(braking)
+        game.speed-=110*dt;
+
+
+    game.speed=
+        THREE.MathUtils.clamp(
+            game.speed,
+            0,
+            125
+        );
+
+
+    let steering=0;
+
+    if(game.keys["KeyA"])
+        steering-=1;
+
+    if(game.keys["KeyD"])
+        steering+=1;
+
+
+    game.steering=
+        THREE.MathUtils.lerp(
+            game.steering,
+            steering,
+            dt*8
+        );
+
+
+    const turn=
+        Math.min(
+            game.speed/35,
+            1
+        );
+
+
+    game.car.rotation.y+=
+        game.steering*
+        .65*
+        turn*
+        dt;
+
+
+    const forward=
+        new THREE.Vector3(
+            0,
+            0,
+            -1
+        )
+        .applyQuaternion(
+            game.car.quaternion
+        );
+
+
+    game.car.position.add(
+        forward.multiplyScalar(
+            game.speed*dt
+        )
+    );
+
+
+    updateRoadPosition();
+
+    updateWheels(dt);
+
+    updateBrakes(braking);
+
+    updateEffects();
+
+
+    game.recorded.push({
+
+        time:
+            performance.now()-
+            game.startTime,
+
+        position:[
+            game.car.position.x,
+            game.car.position.y,
+            game.car.position.z
+        ],
+
+        rotation:
+            game.car.rotation.y
+
+    });
+
+
+    updateCheckpoints();
+
+}
+
+
+/* =====================================================
+   ROAD POSITION
+===================================================== */
+
+function updateRoadPosition(){
+
+    let best=null;
+
+    let bestDistance=Infinity;
+
+
+    for(
+        let i=0;
+        i<=300;
+        i++
+    ){
+
+        const t=i/300;
+
+        const p=
+            game.curve.getPointAt(t);
+
+        const distance=
+            p.distanceToSquared(
+                game.car.position
+            );
+
+
+        if(distance<bestDistance){
+
+            bestDistance=distance;
+
+            best={
+                point:p,
+                t:t
+            };
+
+        }
+
+    }
+
+
+    if(!best)
+        return;
+
+
+    const tangent=
+        game.curve
+        .getTangentAt(best.t)
+        .normalize();
+
+
+    const side=
+        new THREE.Vector3(
+            -tangent.z,
+            0,
+            tangent.x
+        ).normalize();
+
+
+    const lateral=
+        game.car.position
+        .clone()
+        .sub(best.point)
+        .dot(side);
+
+
+    if(
+        Math.abs(lateral)>
+        tracks[game.track].width/2+3
+    ){
+
+        game.speed*=.25;
+
+        document.getElementById(
+            "message"
+        ).textContent=
+            "OFF TRACK — PRESS R TO RESET";
+
+    }
+    else{
+
+        document.getElementById(
+            "message"
+        ).textContent="";
+
+    }
+
+
+    game.car.position.y=
+        THREE.MathUtils.lerp(
+            game.car.position.y,
+            best.point.y+.7,
+            .2
+        );
+
+}
+
+
+/* =====================================================
+   WHEELS
+===================================================== */
+
+function updateWheels(dt){
+
+    game.car.userData.wheels
+    .forEach(
+        (wheel,index)=>{
+
+            wheel.rotation.x-=
+                game.speed*
+                dt*
+                1.5;
+
+
+            if(index<2){
+
+                wheel.rotation.y=
+                    game.steering*.35;
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =====================================================
+   BRAKES
+===================================================== */
+
+function updateBrakes(braking){
+
+    game.car.userData.brakeLights
+    .forEach(
+        light=>{
+
+            light.material.color.setHex(
+                braking
+                ? 0xff0000
+                : 0x330000
+            );
+
+        }
+    );
+
+}
+
+
+/* =====================================================
+   SMOKE + SKIDS
+===================================================== */
+
+function updateEffects(){
+
+    if(
+        Math.abs(game.steering)>.4 &&
+        game.speed>35
+    ){
+
+        if(Math.random()<.25){
+
+            const wheel=
+                game.car.userData.wheels[
+                    game.steering>0 ? 0 : 1
+                ];
+
+
+            const smoke=
+                new THREE.Mesh(
+                    new THREE.SphereGeometry(
+                        .18,
+                        6,
+                        6
+                    ),
+                    new THREE.MeshBasicMaterial({
+                        color:0xaaaaaa,
+                        transparent:true,
+                        opacity:.45
+                    })
+                );
+
+
+            smoke.position.copy(
+                wheel.getWorldPosition(
+                    new THREE.Vector3()
+                )
+            );
+
+            smoke.userData.life=1;
+
+            scene.add(smoke);
+
+            game.smoke.push(smoke);
+
+        }
+
+    }
+
+
+    game.smoke.forEach(
+        smoke=>{
+
+            smoke.userData.life-=.03;
+
+            smoke.scale.multiplyScalar(
+                1.04
+            );
+
+            smoke.material.opacity=
+                smoke.userData.life*.4;
+
+        }
+    );
+
+
+    game.smoke=
+        game.smoke.filter(
+            smoke=>{
+
+                if(
+                    smoke.userData.life<=0
+                ){
+
+                    scene.remove(smoke);
+
+                    return false;
+
+                }
+
+                return true;
+
+            }
+        );
+
+
+    if(
+        game.keys["KeyS"] &&
+        Math.abs(game.steering)>.35 &&
+        game.speed>30 &&
+        Math.random()<.25
+    ){
+
+        game.car.userData.wheels
+        .forEach(
+            wheel=>{
+
+                const mark=
+                    new THREE.Mesh(
+                        new THREE.PlaneGeometry(
+                            .35,
+                            1.5
+                        ),
+                        new THREE.MeshBasicMaterial({
+                            color:0x050505,
+                            transparent:true,
+                            opacity:.7,
+                            side:THREE.DoubleSide
+                        })
+                    );
+
+
+                mark.rotation.x=
+                    -Math.PI/2;
+
+
+                mark.position.copy(
+                    wheel.getWorldPosition(
+                        new THREE.Vector3()
+                    )
+                );
+
+                mark.position.y+=.03;
+
+                scene.add(mark);
+
+                game.skid.push(mark);
+
+            }
+        );
+
+    }
+
+}
+
+
+/* =====================================================
+   CHECKPOINTS
+===================================================== */
+
+function updateCheckpoints(){
+
+    if(
+        game.checkpoint>=
+        game.checkpoints.length
+    )
+        return;
+
+
+    const checkpoint=
+        game.checkpoints[
+            game.checkpoint
+        ];
+
+
+    if(
+        game.car.position.distanceTo(
+            checkpoint.position
+        )<13
+    ){
+
+        game.checkpoint++;
+
+
+        document.getElementById(
+            "checkpoint"
+        ).textContent=
+            game.checkpoint+
+            "/"+
+            game.checkpoints.length;
+
+
+        if(checkpoint.finish){
+
+            finishRace();
+
+        }
+
+    }
+
+}
+
+
+/* =====================================================
+   FINISH
+===================================================== */
+
+function finishRace(){
+
+    game.running=false;
+
+    game.finished=true;
+
+    game.elapsed=
+        performance.now()-
+        game.startTime;
+
+
+    document.getElementById(
+        "finalTime"
+    ).textContent=
+        "TIME: "+
+        formatTime(game.elapsed);
+
+
+    document.getElementById(
+        "finishScreen"
+    ).style.display=
+        "flex";
+
+
+    localStorage.setItem(
+        "ghost_"+game.track,
+        JSON.stringify(
+            game.recorded
+        )
+    );
+
+}
+
+
+/* =====================================================
+   RACE AGAIN
+===================================================== */
+
+function raceAgain(){
+
+    document.getElementById(
+        "finishScreen"
+    ).style.display="none";
+
+
+    resetCar();
+
+    startRace();
+
+}
+
+
+/* =====================================================
+   GHOST
+===================================================== */
+
+function updateGhost(){
+
+    if(
+        !game.ghost ||
+        !game.ghostData ||
+        !game.running
+    )
+        return;
+
+
+    const elapsed=
+        performance.now()-
+        game.startTime;
+
+
+    let a=null;
+    let b=null;
+
+
+    for(
+        let i=0;
+        i<game.ghostData.length-1;
+        i++
+    ){
+
+        if(
+            elapsed>=
+            game.ghostData[i].time &&
+            elapsed<=
+            game.ghostData[i+1].time
+        ){
+
+            a=game.ghostData[i];
+            b=game.ghostData[i+1];
+
+            break;
+
+        }
+
+    }
+
+
+    if(!a || !b)
+        return;
+
+
+    const alpha=
+        (elapsed-a.time)/
+        (b.time-a.time);
+
+
+    game.ghost.position.set(
+
+        THREE.MathUtils.lerp(
+            a.position[0],
+            b.position[0],
+            alpha
+        ),
+
+        THREE.MathUtils.lerp(
+            a.position[1],
+            b.position[1],
+            alpha
+        ),
+
+        THREE.MathUtils.lerp(
+            a.position[2],
+            b.position[2],
+            alpha
+        )
+
+    );
+
+
+    game.ghost.rotation.y=
+        THREE.MathUtils.lerp(
+            a.rotation,
+            b.rotation,
+            alpha
+        );
+
+}
+
+
+/* =====================================================
+   CAMERA
+===================================================== */
+
+function updateCamera(dt){
+
+    const forward=
+        new THREE.Vector3(
+            0,
+            0,
+            -1
+        )
+        .applyQuaternion(
+            game.car.quaternion
+        );
+
+
+    const desired=
+        game.car.position.clone()
+        .add(
+            forward.clone()
+            .multiplyScalar(-12)
+        );
+
+
+    desired.y+=6;
+
+
+    camera.position.lerp(
+        desired,
+        dt*5
+    );
+
+
+    const look=
+        game.car.position.clone()
+        .add(
+            forward.clone()
+            .multiplyScalar(15)
+        );
+
+
+    look.y+=1;
+
+
+    camera.lookAt(look);
+
+}
+
+
+/* =====================================================
+   TIMER
+===================================================== */
+
+function updateHUD(){
+
+    let time=0;
+
+
+    if(game.running){
+
+        time=
+            performance.now()-
+            game.startTime;
+
+    }
+    else if(game.finished){
+
+        time=game.elapsed;
+
+    }
+
+
+    document.getElementById(
+        "timer"
+    ).textContent=
+        formatTime(time);
+
+
+    document.getElementById(
+        "speedValue"
+    ).textContent=
+        Math.round(
+            game.speed*3.6
+        );
+
+}
+
+
+function formatTime(ms){
+
+    const minutes=
+        Math.floor(ms/60000);
+
+    const seconds=
+        Math.floor(
+            (ms%60000)/1000
+        );
+
+    const milliseconds=
+        Math.floor(ms%1000);
+
+
+    return (
+        String(minutes).padStart(2,"0")
+        +":"
+        +String(seconds).padStart(2,"0")
+        +"."
+        +String(milliseconds).padStart(3,"0")
+    );
+
+}
+
+
+/* =====================================================
+   BUTTONS
+===================================================== */
+
+document.getElementById(
+    "nextTrack"
+).onclick=()=>{
+
+    loadTrack(
+        game.track+1
+    );
+
+};
+
+
+document.getElementById(
+    "exitButton"
+).onclick=()=>{
+
+    game.running=false;
+
+    document.getElementById(
+        "exitScreen"
+    ).style.display="flex";
+
+};
+
+
+document.getElementById(
+    "returnRace"
+).onclick=()=>{
+
+    document.getElementById(
+        "exitScreen"
+    ).style.display="none";
+
+    resetCar();
+
+};
+
+
+document.getElementById(
+    "raceAgain"
+).onclick=
+    raceAgain;
+
+
+document.getElementById(
+    "finishNext"
+).onclick=()=>{
+
+    document.getElementById(
+        "finishScreen"
+    ).style.display="none";
+
+    loadTrack(
+        game.track+1
+    );
+
+};
+
+
+document.getElementById(
+    "finishExit"
+).onclick=()=>{
+
+    document.getElementById(
+        "finishScreen"
+    ).style.display="none";
+
+    document.getElementById(
+        "exitScreen"
+    ).style.display="flex";
+
+};
+
+
+/* =====================================================
+   COLOR CUSTOMIZATION
+===================================================== */
+
+document.getElementById(
+    "bodyColor"
+).oninput=e=>{
+
+    game.body=e.target.value;
+
+    game.car.userData.body
+        .material.color.set(
+            game.body
+        );
+
+};
+
+
+document.getElementById(
+    "frontColor"
+).oninput=e=>{
+
+    game.front=e.target.value;
+
+    game.car.userData.front
+        .material.color.set(
+            game.front
+        );
+
+};
+
+
+document.getElementById(
+    "rearColor"
+).oninput=e=>{
+
+    game.rear=e.target.value;
+
+    game.car.userData.rear
+        .material.color.set(
+            game.rear
+        );
+
+};
+
+
+/* =====================================================
+   RESIZE
+===================================================== */
+
+addEventListener(
+    "resize",
+    ()=>{
+
+        camera.aspect=
+            innerWidth/innerHeight;
+
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(
+            innerWidth,
+            innerHeight
+        );
+
+    }
+);
+
+
+/* =====================================================
+   START GAME
+===================================================== */
+
+game.car=
+    makeCar();
+
+loadTrack(0);
+
+
+/* =====================================================
+   GAME LOOP
+===================================================== */
+
+let last=
+    performance.now();
+
+
+function loop(){
+
+    requestAnimationFrame(loop);
+
+
+    const now=
+        performance.now();
+
+
+    const dt=
+        Math.min(
+            (now-last)/1000,
+            .05
+        );
+
+
+    last=now;
+
+
+    updateCar(dt);
+
+    updateGhost();
+
+    updateCamera(dt);
+
+    updateHUD();
+
+
+    renderer.render(
+        scene,
+        camera
+    );
+
+}
+
+
+loop();
+
+</script>
+
+</body>
+</html>
+
+
