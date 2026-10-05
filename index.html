@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitHub Fan Racing</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <div id="hud">
+
+    <div class="top-left">
+      <div class="title">GITHUB FAN RACING</div>
+      <div id="trackName">Forest Run</div>
+    </div>
+
+    <div class="top-right">
+      <button id="nextTrack">NEXT TRACK</button>
+      <button id="exitGame">EXIT</button>
+    </div>
+
+    <div id="timer">00:00.000</div>
+
+    <div id="checkpointCounter">0/0</div>
+
+    <div id="message">PRESS W TO START</div>
+
+    <div id="speed">0 km/h</div>
+
+  </div>
+
+
+  <div id="carControls">
+
+    <label>
+      Car color
+      <input id="carColor" type="color" value="#ff2020">
+    </label>
+
+    <label>
+      Front wing
+      <input id="frontWingColor" type="color" value="#111111">
+    </label>
+
+    <label>
+      Rear wing
+      <input id="rearWingColor" type="color" value="#111111">
+    </label>
+
+  </div>
+
+
+  <div id="finishPanel" class="hidden">
+
+    <h1>TRACK COMPLETE!</h1>
+
+    <p id="finalTime"></p>
+
+    <p>SPACE = race again with your ghost</p>
+
+    <button id="panelNext">
+      NEXT TRACK
+    </button>
+
+  </div>
+
+
+  <div id="exitPanel" class="hidden">
+
+    <h1>RACE EXITED</h1>
+
+    <p>Press SPACE to return to the race.</p>
+
+  </div>
+
+
+  <script type="module" src="script.js"></script>
+
+</body>
+</html>
