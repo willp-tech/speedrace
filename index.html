@@ -1,1 +1,319 @@
-<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width,initial-scale=1.0"> <title>HyperTrack 2026 - F1 World Championship</title> <style> *{box-sizing:border-box} html,body{ margin:0; width:100%; height:100%; overflow:hidden; background:#05070a; font-family:Arial,Helvetica,sans-serif; color:white; } #game{ position:fixed; inset:0; } canvas{ display:block; width:100%; height:100%; } #hud{ position:fixed; inset:0; pointer-events:none; user-select:none; } .top{ position:absolute; top:18px; left:18px; right:18px; display:flex; justify-content:space-between; align-items:flex-start; } .panel{ background:rgba(5,8,13,.78); border:1px solid rgba(255,255,255,.15); box-shadow:0 8px 30px rgba(0,0,0,.45); backdrop-filter:blur(8px); border-radius:10px; } #raceInfo{ padding:12px 16px; min-width:230px; } #trackName{ font-size:12px; letter-spacing:2px; opacity:.75; margin-bottom:5px; color:#ff3b3b; font-weight:bold; } #position{ font-size:34px; font-weight:900; line-height:1; } #position small{ font-size:14px; opacity:.6; } #timeBox{ padding:12px 18px; text-align:right; min-width:180px; } #time{ font-size:25px; font-weight:bold; font-variant-numeric:tabular-nums; } #best{ margin-top:3px; opacity:.6; font-size:12px; } #speedBox{ position:absolute; left:20px; bottom:20px; padding:14px 18px; min-width:220px; } #speed{ font-size:44px; font-weight:900; line-height:.9; font-variant-numeric:tabular-nums; } #speedUnit{ font-size:11px; opacity:.55; letter-spacing:2px; } #gear{ position:absolute; right:22px; bottom:22px; width:90px; height:90px; display:flex; align-items:center; justify-content:center; font-size:42px; font-weight:900; } #controls{ position:absolute; bottom:18px; left:50%; transform:translateX(-50%); padding:8px 14px; font-size:11px; color:rgba(255,255,255,.68); letter-spacing:.3px; pointer-events:auto; cursor:pointer; } #controls:hover { background:rgba(15,22,35,.9); color:white; } #countdown{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:120px; font-weight:1000; font-style:italic; text-shadow:0 8px 30px rgba(0,0,0,.7); } #message{ position:absolute; left:50%; top:37%; transform:translate(-50%,-50%); text-align:center; font-size:42px; font-weight:900; text-shadow:0 5px 25px #000; } #message small{ display:block; font-size:14px; opacity:.7; margin-top:8px; letter-spacing:2px; } #minimap{ position:absolute; top:110px; right:18px; width:190px; height:145px; border-radius:9px; background:rgba(3,5,8,.75); border:1px solid rgba(255,255,255,.15); overflow:hidden; } #minimap canvas{ width:100%; height:100%; } #speedLines{ position:absolute; inset:0; pointer-events:none; opacity:0; background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.08) 50%,transparent 100%); mix-blend-mode:screen; } #flash{ position:absolute; inset:0; background:white; opacity:0; pointer-events:none; } </style> </head> <body> <div id="game"></div> <div id="hud"> <div class="top"> <div id="raceInfo" class="panel"> <div id="trackName">2026 F1 // MONACO GP</div> <div id="position">1<small> / 11</small></div> </div> <div id="timeBox" class="panel"> <div id="time">00:00.000</div> <div id="best">BEST --:--.---</div> </div> </div> <div id="minimap"> <canvas id="mapCanvas" width="380" height="290"></canvas> </div> <div id="countdown">3</div> <div id="message"></div> <div id="speedBox" class="panel"> <div id="speed">0</div> <div id="speedUnit">KM/H</div> </div> <div id="gear" class="panel">1</div> <div id="controls" class="panel" onclick="nextTrack()"> W / ↑ THROTTLE &nbsp; A / ← LEFT &nbsp; D / → RIGHT &nbsp; S / ↓ BRAKE &nbsp; N: NEXT CIRCUIT </div> <div id="speedLines"></div> <div id="flash"></div> </div> <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script> <script> "use strict"; /* ========================================================= AUDIO ENGINE ========================================================= */ let audioCtx = null; let engineOsc = null, engineGain = null; function initAudio() { if (audioCtx) return; try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); engineOsc = audioCtx.createOscillator(); engineOsc.type = 'sawtooth'; engineOsc.frequency.setValueAtTime(80, audioCtx.currentTime); const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.setValueAtTime(450, audioCtx.currentTime); engineGain = audioCtx.createGain(); engineGain.gain.setValueAtTime(0.08, audioCtx.currentTime); engineOsc.connect(filter); filter.connect(engineGain); engineGain.connect(audioCtx.destination); engineOsc.start(); } catch(e) { console.log("Audio not supported"); } } function updateAudio(speed, throttle) { if (!audioCtx || !engineOsc) return; const targetFreq = 70 + (speed / 180) * 320 + (throttle ? 50 : 0); engineOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.05); } /* ========================================================= BASIC SETUP ========================================================= */ const scene = new THREE.Scene(); scene.background = new THREE.Color(0x7ec8e3); scene.fog = new THREE.Fog(0x7ec8e3, 600, 4500); const camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 6000); const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:"high-performance" }); renderer.setSize(innerWidth, innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05; document.getElementById("game").appendChild(renderer.domElement); /* ========================================================= LIGHTING ========================================================= */ const hemi = new THREE.HemisphereLight(0xffffff, 0x405530, 2.1); scene.add(hemi); const sun = new THREE.DirectionalLight(0xffffff, 2.8); sun.position.set(-600, 900, -700); sun.castShadow = true; sun.shadow.mapSize.width = 2048; sun.shadow.mapSize.height = 2048; sun.shadow.camera.left = -1100; sun.shadow.camera.right = 1100; sun.shadow.camera.top = 1100; sun.shadow.camera.bottom = -1100; sun.shadow.camera.near = 1; sun.shadow.camera.far = 3500; scene.add(sun); /* ========================================================= CONSTANTS ========================================================= */ const ROAD_WIDTH = 42; const CURB_WIDTH = 3.5; const ROAD_HEIGHT = 1.5; const TRACK_SAMPLES = 950; const MAX_SPEED = 185; const PLAYER_RADIUS = 2.25; const AI_COUNT = 10; const TOTAL_LAPS = 3; const clock = new THREE.Clock(); let raceStarted = false; let raceFinished = false; let countdown = 3; let countdownTimer = 0; let raceTime = 0; let currentTrack = 0; let bestLapTime = Infinity; const keys = {}; window.addEventListener("keydown", e => { keys[e.code] = true; initAudio(); if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code)) e.preventDefault(); if(e.code === "KeyR") resetRace(); if(e.code === "KeyN") nextTrack(); }); window.addEventListener("keyup", e => { keys[e.code] = false; }); window.addEventListener("pointerdown", () => { initAudio(); }); /* ========================================================= MATERIALS ========================================================= */ function mat(color, roughness=.65, metalness=.05){ return new THREE.MeshStandardMaterial({ color, roughness, metalness }); } const roadMat = mat(0x5a5e63,.94,.02); const grassMat = mat(0x437031,1); const curbRed = mat(0xd62f35,.7); const curbWhite = mat(0xf1f1e8,.7); const barrierMat = mat(0xd8dce0,.55,.25); const blackMat = mat(0x090a0c,.35,.55); const glassMat = new THREE.MeshStandardMaterial({ color:0x07121b, roughness:.1, metalness:.65, transparent:true, opacity:.85 }); /* ========================================================= GROUND ========================================================= */ const ground = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), grassMat); ground.rotation.x = -Math.PI/2; ground.position.y = -0.22; ground.receiveShadow = true; scene.add(ground); /* ========================================================= 2026 F1 TRACK DATABASE ========================================================= */ const tracks = [ { name: "2026 F1 // MONACO GRAND PRIX", points: [[0,-720],[320,-720],[600,-580],[780,-350],[800,-60],[680,140],[440,220],[200,190],[70,60],[40,-90],[-80,-200],[-280,-180],[-450,-50],[-620,90],[-780,50],[-880,-140],[-840,-380],[-660,-580],[-340,-680]] }, { name: "2026 F1 // SILVERSTONE CIRCUIT", points: [[0,-800],[350,-780],[650,-650],[820,-420],[850,-100],[720,180],[480,320],[220,290],[40,120],[-150,220],[-380,380],[-590,520],[-800,410],[-920,180],[-900,-80],[-780,-320],[-560,-520],[-280,-700]] }, { name: "2026 F1 // MONZA CIRCUIT", points: [[0,-850],[480,-850],[820,-700],[920,-450],[850,-150],[650,-20],[780,180],[850,450],[720,700],[420,820],[100,780],[-120,620],[-320,400],[-500,180],[-750,250],[-920,80],[-880,-200],[-720,-480],[-480,-700]] }, { name: "2026 F1 // SPA-FRANCORCHAMPS", points: [[0,-820],[400,-820],[750,-680],[920,-420],[860,-120],[680,80],[520,260],[380,480],[150,650],[-120,720],[-380,620],[-600,420],[-780,200],[-880,-60],[-820,-320],[-650,-550],[-380,-720]] }, { name: "2026 F1 // SUZUKA CIRCUIT", points: [[0,-750],[380,-750],[700,-600],[820,-350],[780,-80],[620,150],[380,280],[150,220],[-50,300],[-220,480],[-420,620],[-650,550],[-820,320],[-880,50],[-800,-180],[-620,-380],[-380,-550],[-180,-680]] }, { name: "2026 F1 // ALBERT PARK MELBOURNE", points: [[0,-780],[420,-750],[740,-600],[880,-350],[820,-80],[680,150],[450,250],[220,200],[60,80],[-100,220],[-320,420],[-550,520],[-780,420],[-880,180],[-840,-80],[-700,-320],[-480,-550],[-220,-700]] }, { name: "2026 F1 // MIAMI GRAND PRIX", points: [[0,-800],[450,-800],[780,-650],[900,-400],[820,-150],[650,0],[780,200],[850,450],[700,700],[380,820],[80,750],[-150,580],[-350,380],[-580,480],[-820,350],[-900,100],[-820,-180],[-650,-450],[-350,-680]] }, { name: "2026 F1 // LAS VEGAS STRIP CIRCUIT", points: [[0,-850],[500,-850],[850,-680],[920,-420],[850,-150],[620,-50],[750,150],[880,400],[780,680],[450,850],[120,820],[-120,650],[-350,420],[-580,520],[-820,380],[-900,120],[-850,-150],[-680,-480],[-420,-700]] } ]; let trackCurve; let trackPoints = []; let trackTangents = []; let trackLength = 0; let racingLine = []; let racingLineTangents = []; const trackGroup = new THREE.Group(); scene.add(trackGroup); /* ========================================================= TRACK GENERATION ========================================================= */ function buildTrack(index){ while(trackGroup.children.length){ trackGroup.remove(trackGroup.children[0]); } const data = tracks[index]; document.getElementById("trackName").innerText = data.name; const controlPoints = data.points.map(p => new THREE.Vector3(p[0], 0, p[1])); trackCurve = new THREE.CatmullRomCurve3(controlPoints, true, "centripetal", .45); trackPoints = []; trackTangents = []; for(let i=0; i<TRACK_SAMPLES; i++){ const t = i / TRACK_SAMPLES; trackPoints.push(trackCurve.getPointAt(t)); trackTangents.push(trackCurve.getTangentAt(t).normalize()); } // Racing line for AI racingLine = []; racingLineTangents = []; for(let i=0; i<TRACK_SAMPLES; i++){ const p = trackPoints[i].clone(); const t = trackTangents[i]; const right = new THREE.Vector3(-t.z, 0, t.x).normalize(); p.addScaledVector(right, (i % 2 === 0 ? 5 : -5)); racingLine.push(p); } for(let i=0; i<TRACK_SAMPLES; i++){ const a = racingLine[(i-2+TRACK_SAMPLES)%TRACK_SAMPLES]; const b = racingLine[(i+2)%TRACK_SAMPLES]; racingLineTangents.push(b.clone().sub(a).normalize()); } trackLength = 0; for(let i=0; i<TRACK_SAMPLES; i++){ trackLength += trackPoints[i].distanceTo(trackPoints[(i+1)%TRACK_SAMPLES]); } // ROAD MESH const roadPositions = []; const roadIndices = []; for(let i=0; i<TRACK_SAMPLES; i++){ const p = trackPoints[i], t = trackTangents[i]; const right = new THREE.Vector3(-t.z, 0, t.x).normalize(); const leftP = p.clone().addScaledVector(right, -ROAD_WIDTH/2); const rightP = p.clone().addScaledVector(right, ROAD_WIDTH/2); const base = i*2; roadPositions.push(leftP.x, ROAD_HEIGHT, leftP.z, rightP.x, ROAD_HEIGHT, rightP.z); roadIndices.push(base, ((i+1)%TRACK_SAMPLES)*2, base+1, base+1, ((i+1)%TRACK_SAMPLES)*2, ((i+1)%TRACK_SAMPLES)*2+1); } const roadGeo = new THREE.BufferGeometry(); roadGeo.setAttribute("position", new THREE.Float32BufferAttribute(roadPositions, 3)); roadGeo.setIndex(roadIndices); roadGeo.computeVertexNormals(); const road = new THREE.Mesh(roadGeo, roadMat); road.receiveShadow = true; trackGroup.add(road); // CURBS & BARRIERS const curbGroup = new THREE.Group(); const barrierGroup = new THREE.Group(); const barrierSegments = []; for(let i=0; i<TRACK_SAMPLES; i+=3){ const p = trackPoints[i], t = trackTangents[i]; const right = new THREE.Vector3(-t.z, 0, t.x).normalize(); for(const side of [-1, 1]){ const curb = new THREE.Mesh(new THREE.BoxGeometry(CURB_WIDTH, .16, 6.8), (Math.floor(i/3)%2===0) ? curbRed : curbWhite); curb.position.copy(p).addScaledVector(right, side*(ROAD_WIDTH/2 + CURB_WIDTH/2)); curb.position.y = ROAD_HEIGHT + .08; curb.rotation.y = Math.atan2(-t.x, -t.z); curbGroup.add(curb); } } for(const side of [-1, 1]){ for(let i=0; i<TRACK_SAMPLES; i++){ const a = trackPoints[i], b = trackPoints[(i+1)%TRACK_SAMPLES]; const ta = trackTangents[i], tb = trackTangents[(i+1)%TRACK_SAMPLES]; const ra = new THREE.Vector3(-ta.z, 0, ta.x).normalize(); const rb = new THREE.Vector3(-tb.z, 0, tb.x).normalize(); const dist = ROAD_WIDTH/2 + 5.2; const pa = a.clone().addScaledVector(ra, side*dist); const pb = b.clone().addScaledVector(rb, side*dist); barrierSegments.push({a: pa, b: pb, side}); } } window._barrierSegments = barrierSegments; trackGroup.add(curbGroup); // START LINE & GANTRY const start = trackPoints[0], tangent = trackTangents[0]; const startLine = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_WIDTH, 8), new THREE.MeshBasicMaterial({color:0xffffff, side:THREE.DoubleSide})); startLine.rotation.x = -Math.PI/2; startLine.rotation.z = Math.atan2(tangent.z, tangent.x); startLine.position.copy(start); startLine.position.y = ROAD_HEIGHT + .07; trackGroup.add(startLine); buildScenery(); } /* ========================================================= SCENERY ========================================================= */ function buildScenery(){ const scenery = new THREE.Group(); for(let i=0; i<120; i++){ const index = Math.floor(Math.random()*TRACK_SAMPLES); const p = trackPoints[index], t = trackTangents[index]; const right = new THREE.Vector3(-t.z, 0, t.x).normalize(); const side = Math.random() < .5 ? -1 : 1; const distance = ROAD_WIDTH/2 + 35 + Math.random()*220; const obj = new THREE.Group(); const building = new THREE.Mesh( new THREE.BoxGeometry(12+Math.random()*15, 8+Math.random()*18, 12+Math.random()*15), mat([0x7c8589, 0xa29b87, 0x5e6469][Math.floor(Math.random()*3)]) ); building.position.y = building.geometry.parameters.height/2; obj.add(building); obj.position.copy(p).addScaledVector(right, side*distance); scenery.add(obj); } trackGroup.add(scenery); } /* ========================================================= WEDGE & CARS ========================================================= */ function wedgeGeometry(length, height, frontWidth, rearWidth){ const z1 = -length/2, z2 = length/2; const verts = [ -frontWidth/2,0,z1, frontWidth/2,0,z1, -rearWidth/2,0,z2, rearWidth/2,0,z2, -frontWidth/2,height,z1, frontWidth/2,height,z1, -rearWidth/2,height*.78,z2, rearWidth/2,height*.78,z2 ]; const indices = [0,2,1, 1,2,3, 4,5,6, 5,7,6, 0,4,2, 2,4,6, 1,3,5, 3,7,5, 0,1,4, 1,5,4, 2,6,3, 3,6,7]; const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3)); g.setIndex(indices); g.computeVertexNormals(); return g; } const carColors = [0xf27b20, 0x1877d2, 0xd71920, 0xeeeeee, 0x19a65a, 0x111111, 0xffd21f, 0x783bd1, 0x00a6a6, 0xff4b91]; function createCar(color, number, isPlayer=false){ const root = new THREE.Group(); const bodyMat = mat(color, .35, .3); const carbon = mat(0x17191c, .45, .5); const tireMat = mat(0x070708, .96, .02); const floor = new THREE.Mesh(new THREE.BoxGeometry(2.15, .18, 5.15), carbon); floor.position.y = .42; root.add(floor); const body = new THREE.Mesh(wedgeGeometry(4.6, .78, .95, 1.72), bodyMat); body.position.y = .53; root.add(body); const nose = new THREE.Mesh(wedgeGeometry(2.9, .55, .38, .95), bodyMat); nose.position.set(0, .66, -3.0); root.add(nose); const cockpit = new THREE.Mesh(new THREE.BoxGeometry(1.02, .28, 1.3), glassMat); cockpit.position.set(0, 1.03, -.15); root.add(cockpit); const wheels = []; const wheelPositions = [[-1.08,.48,-2.35,true], [1.08,.48,-2.35,true], [-1.08,.48,2.05,false], [1.08,.48,2.05,false]]; for(const wp of wheelPositions){ const steeringPivot = new THREE.Group(); steeringPivot.position.set(wp[0], wp[1], wp[2]); const spinPivot = new THREE.Group(); const tire = new THREE.Mesh(new THREE.CylinderGeometry(.48, .48, .34, 18), tireMat); tire.rotation.z = Math.PI/2; spinPivot.add(tire); steeringPivot.add(spinPivot); root.add(steeringPivot); wheels.push({steeringPivot, spinPivot, front:wp[3]}); } root.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } }); return { root, wheels, velocity: new THREE.Vector3(), yaw: 0, speed: 0, progress: 0, targetProgress: 0, laneOffset: 0, aiSkill: .8 + Math.random()*.18, collisionRadius: PLAYER_RADIUS, number, isPlayer, lap: 1 }; } let player; let cars = []; function createCars(){ cars = []; player = createCar(0xf27b20, 5, true); scene.add(player.root); cars.push(player); for(let i=0; i<AI_COUNT; i++){ const ai = createCar(carColors[i%carColors.length], i+1, false); scene.add(ai.root); cars.push(ai); } resetRace(); } function resetRace(){ raceStarted = false; raceFinished = false; countdown = 3; countdownTimer = 0; raceTime = 0; const start = trackPoints[0]; const tangent = trackTangents[0]; const yaw = Math.atan2(-tangent.x, -tangent.z); cars.forEach((car, index) => { const row = Math.floor(index / 2); const side = (index % 2 === 0) ? -1.4 : 1.4; const pos = start.clone().addScaledVector(tangent, -row * 6.5); const right = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize(); pos.addScaledVector(right, side); car.root.position.copy(pos); car.yaw = yaw; car.speed = 0; car.velocity.set(0,0,0); car.progress = (index * 0.001); car.targetProgress = car.progress; car.lap = 1; }); } function nextTrack(){ currentTrack = (currentTrack + 1) % tracks.length; buildTrack(currentTrack); resetRace(); } /* ========================================================= GAME LOOP ========================================================= */ buildTrack(0); createCars(); const mapCanvas = document.getElementById("mapCanvas"); const mapCtx = mapCanvas.getContext("2d"); function updateMinimap(){ mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height); mapCtx.strokeStyle = "rgba(255,255,255,0.4)"; mapCtx.lineWidth = 3; mapCtx.beginPath(); for(let i=0; i<TRACK_SAMPLES; i++){ const p = trackPoints[i]; const x = (p.x + 1000) / 2000 * mapCanvas.width; const y = (p.z + 1000) / 2000 * mapCanvas.height; if(i===0) mapCtx.moveTo(x, y); else mapCtx.lineTo(x, y); } mapCtx.closePath(); mapCtx.stroke(); cars.forEach(car => { const p = car.root.position; const x = (p.x + 1000) / 2000 * mapCanvas.width; const y = (p.z + 1000) / 2000 * mapCanvas.height; mapCtx.fillStyle = car.isPlayer ? "#ff3b3b" : "#ffffff"; mapCtx.beginPath(); mapCtx.arc(x, y, car.isPlayer ? 4 : 2.5, 0, Math.PI*2); mapCtx.fill(); }); } function animate(){ requestAnimationFrame(animate); const dt = Math.min(clock.getDelta(), 0.1); if(!raceStarted){ countdownTimer += dt; if(countdownTimer >= 1){ countdown--; countdownTimer = 0; if(countdown <= 0){ raceStarted = true; document.getElementById("countdown").innerText = ""; } else { document.getElementById("countdown").innerText = countdown; } } } else if(!raceFinished){ raceTime += dt; document.getElementById("time").innerText = new Date(raceTime * 1000).toISOString().substr(14, 8); } // PLAYER CONTROLS & PHYSICS let throttle = false, braking = false; if(raceStarted && !raceFinished){ if(keys["ArrowUp"] || keys["KeyW"]) throttle = true; if(keys["ArrowDown"] || keys["KeyS"]) braking = true; if(throttle) player.speed = THREE.MathUtils.lerp(player.speed, MAX_SPEED, dt * 2.2); else if(braking) player.speed = THREE.MathUtils.lerp(player.speed, 0, dt * 4.5); else player.speed = THREE.MathUtils.lerp(player.speed, 0, dt * 1.2); if(keys["ArrowLeft"] || keys["KeyA"]) player.yaw += 1.8 * dt * (player.speed / MAX_SPEED + 0.2); if(keys["ArrowRight"] || keys["KeyD"]) player.yaw -= 1.8 * dt * (player.speed / MAX_SPEED + 0.2); const forward = new THREE.Vector3(Math.sin(player.yaw), 0, Math.cos(player.yaw)); player.root.position.addScaledVector(forward, player.speed * dt * 0.28); player.root.rotation.y = player.yaw; updateAudio(player.speed, throttle); } // AI CARS MOVEMENT cars.forEach((car, idx) => { if(car.isPlayer) return; if(raceStarted){ car.speed = MAX_SPEED * (0.82 + car.aiSkill * 0.15); car.progress = (car.progress + (car.speed * dt * 0.00008)) % 1; const targetP = trackCurve.getPointAt(car.progress); car.root.position.lerp(targetP, dt * 5); const nextP = trackCurve.getPointAt((car.progress + 0.01) % 1); car.root.lookAt(nextP); } }); // CAMERA FOLLOW const idealOffset = new THREE.Vector3(0, 4.2, 9.5).applyAxisAngle(new THREE.Vector3(0,1,0), player.yaw); camera.position.lerp(player.root.position.clone().add(idealOffset), dt * 8); camera.lookAt(player.root.position.clone().add(new THREE.Vector3(0, 1.2, -2))); // HUD UPDATE document.getElementById("speed").innerText = Math.round(player.speed); updateMinimap(); renderer.render(scene, camera); } animate(); </script> </body> </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>HyperTrack 2026 - Official F1 World Championship</title>
+<style>
+*{box-sizing:border-box}
+html,body{
+  margin:0; width:100%; height:100%; overflow:hidden;
+  background:#05070a; font-family:Arial,Helvetica,sans-serif; color:white;
+}
+#game{ position:fixed; inset:0; }
+canvas{ display:block; width:100%; height:100%; }
+#hud{ position:fixed; inset:0; pointer-events:none; user-select:none; }
+.top{
+  position:absolute; top:18px; left:18px; right:18px;
+  display:flex; justify-content:space-between; align-items:flex-start;
+}
+.panel{
+  background:rgba(5,8,13,.78); border:1px solid rgba(255,255,255,.15);
+  box-shadow:0 8px 30px rgba(0,0,0,.45); backdrop-filter:blur(8px);
+  border-radius:10px;
+}
+#raceInfo{ padding:12px 16px; min-width:260px; pointer-events:auto; cursor:pointer; }
+#raceInfo:hover { background:rgba(15,22,35,.9); }
+#trackName{ font-size:11px; letter-spacing:2px; opacity:.8; margin-bottom:5px; color:#ff3b3b; font-weight:bold; }
+#position{ font-size:34px; font-weight:900; line-height:1; }
+#position small{ font-size:14px; opacity:.6; }
+#timeBox{ padding:12px 18px; text-align:right; min-width:180px; }
+#time{ font-size:25px; font-weight:bold; font-variant-numeric:tabular-nums; }
+#best{ margin-top:3px; opacity:.6; font-size:12px; }
+#speedBox{ position:absolute; left:20px; bottom:20px; padding:14px 18px; min-width:220px; }
+#speed{ font-size:44px; font-weight:900; line-height:.9; font-variant-numeric:tabular-nums; }
+#speedUnit{ font-size:11px; opacity:.55; letter-spacing:2px; }
+#gear{
+  position:absolute; right:22px; bottom:22px; width:90px; height:90px;
+  display:flex; align-items:center; justify-content:center; font-size:42px; font-weight:900;
+}
+#controls{
+  position:absolute; bottom:18px; left:50%; transform:translateX(-50%);
+  padding:8px 14px; font-size:11px; color:rgba(255,255,255,.68); letter-spacing:.3px;
+  pointer-events:auto; cursor:pointer;
+}
+#controls:hover { background:rgba(15,22,35,.9); color:white; }
+#countdown{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  font-size:120px; font-weight:1000; font-style:italic; text-shadow:0 8px 30px rgba(0,0,0,.7);
+}
+#minimap{
+  position:absolute; top:110px; right:18px; width:190px; height:145px;
+  border-radius:9px; background:rgba(3,5,8,.75); border:1px solid rgba(255,255,255,.15); overflow:hidden;
+}
+#minimap canvas{ width:100%; height:100%; }
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="hud">
+  <div class="top">
+    <div id="raceInfo" class="panel" onclick="nextTrack()" title="Click to change track">
+      <div id="trackName">2026 F1 // ROUND 1: AUSTRALIA</div>
+      <div id="position">1<small> / 11</small></div>
+    </div>
+    <div id="timeBox" class="panel">
+      <div id="time">00:00.000</div>
+      <div id="best">BEST --:--.---</div>
+    </div>
+  </div>
+  <div id="minimap">
+    <canvas id="mapCanvas" width="380" height="290"></canvas>
+  </div>
+  <div id="countdown">3</div>
+  <div id="speedBox" class="panel">
+    <div id="speed">0</div>
+    <div id="speedUnit">KM/H</div>
+  </div>
+  <div id="gear" class="panel">1</div>
+  <div id="controls" class="panel" onclick="nextTrack()">
+    W/↑ THROTTLE &nbsp; A/← LEFT &nbsp; D/→ RIGHT &nbsp; S/↓ BRAKE &nbsp; [N] NEXT 2026 CIRCUIT
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+"use strict";
+
+/* ========================================================= AUDIO ENGINE ========================================================= */
+let audioCtx = null;
+let engineOsc = null, engineGain = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    engineOsc = audioCtx.createOscillator();
+    engineOsc.type = 'sawtooth';
+    engineOsc.frequency.setValueAtTime(80, audioCtx.currentTime);
+    
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(500, audioCtx.currentTime);
+
+    engineGain = audioCtx.createGain();
+    engineGain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+
+    engineOsc.connect(filter);
+    filter.connect(engineGain);
+    engineGain.connect(audioCtx.destination);
+    engineOsc.start();
+  } catch(e) { console.log("Audio disabled"); }
+}
+
+function updateAudio(speed, throttle) {
+  if (!audioCtx || !engineOsc) return;
+  const targetFreq = 75 + (speed / 190) * 350 + (throttle ? 60 : 0);
+  engineOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.05);
+}
+
+/* ========================================================= THREE.JS SETUP ========================================================= */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x7ec8e3);
+scene.fog = new THREE.Fog(0x7ec8e3, 600, 4500);
+
+const camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 6000);
+const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:"high-performance" });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+document.getElementById("game").appendChild(renderer.domElement);
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x405530, 2.1);
+scene.add(hemi);
+
+const sun = new THREE.DirectionalLight(0xffffff, 2.8);
+sun.position.set(-600, 900, -700);
+sun.castShadow = true;
+sun.shadow.mapSize.width = 2048;
+sun.shadow.mapSize.height = 2048;
+sun.shadow.camera.left = -1100;
+sun.shadow.camera.right = 1100;
+sun.shadow.camera.top = 1100;
+sun.shadow.camera.bottom = -1100;
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far = 3500;
+scene.add(sun);
+
+/* ========================================================= CONSTANTS ========================================================= */
+const ROAD_WIDTH = 42;
+const CURB_WIDTH = 3.5;
+const ROAD_HEIGHT = 1.5;
+const TRACK_SAMPLES = 950;
+const MAX_SPEED = 185;
+const PLAYER_RADIUS = 2.25;
+const AI_COUNT = 10;
+const clock = new THREE.Clock();
+
+let raceStarted = false;
+let raceFinished = false;
+let countdown = 3;
+let countdownTimer = 0;
+let raceTime = 0;
+let currentTrack = 0;
+let bestLapTime = Infinity;
+const keys = {};
+
+window.addEventListener("keydown", e => {
+  keys[e.code] = true;
+  initAudio();
+  if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code)) e.preventDefault();
+  if(e.code === "KeyR") resetRace();
+  if(e.code === "KeyN") nextTrack();
+});
+window.addEventListener("keyup", e => { keys[e.code] = false; });
+window.addEventListener("pointerdown", () => { initAudio(); });
+
+/* ========================================================= MATERIALS ========================================================= */
+function mat(color, roughness=.65, metalness=.05){
+  return new THREE.MeshStandardMaterial({ color, roughness, metalness });
+}
+const roadMat = mat(0x5a5e63,.94,.02);
+const grassMat = mat(0x437031,1);
+const curbRed = mat(0xd62f35,.7);
+const curbWhite = mat(0xf1f1e8,.7);
+const glassMat = new THREE.MeshStandardMaterial({ color:0x07121b, roughness:.1, metalness:.65, transparent:true, opacity:.85 });
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), grassMat);
+ground.rotation.x = -Math.PI/2;
+ground.position.y = -0.22;
+ground.receiveShadow = true;
+scene.add(ground);
+
+/* ========================================================= ALL 2026 F1 CIRCUITS DATABASE ========================================================= */
+const tracks = [
+  { name: "2026 F1 // ROUND 1: AUSTRALIAN GP (MELBOURNE)", points: [[0,-780],[420,-750],[740,-600],[880,-350],[820,-80],[680,150],[450,250],[220,200],[60,80],[-100,220],[-320,420],[-550,520],[-780,420],[-880,180],[-840,-80],[-700,-320],[-480,-550],[-220,-700]] },
+  { name: "2026 F1 // ROUND 2: CHINESE GP (SHANGHAI)", points: [[0,-820],[380,-800],[720,-680],[880,-420],[850,-120],[680,80],[820,320],[750,620],[480,780],[120,720],[-150,550],[-380,320],[-620,450],[-850,280],[-900,0],[-780,-320],[-520,-580],[-250,-720]] },
+  { name: "2026 F1 // ROUND 3: JAPANESE GP (SUZUKA)", points: [[0,-750],[380,-750],[700,-600],[820,-350],[780,-80],[620,150],[380,280],[150,220],[-50,300],[-220,480],[-420,620],[-650,550],[-820,320],[-880,50],[-800,-180],[-620,-380],[-380,-550],[-180,-680]] },
+  { name: "2026 F1 // ROUND 4: SAUDI ARABIAN GP (JEDDAH)", points: [[0,-850],[450,-850],[820,-720],[900,-480],[840,-200],[680,-50],[800,150],[860,420],[720,680],[400,800],[50,720],[-180,520],[-400,320],[-650,480],[-880,320],[-920,40],[-800,-250],[-600,-520],[-300,-720]] },
+  { name: "2026 F1 // ROUND 5: MIAMI GRAND PRIX", points: [[0,-800],[450,-800],[780,-650],[900,-400],[820,-150],[650,0],[780,200],[850,450],[700,700],[380,820],[80,750],[-150,580],[-350,380],[-580,480],[-820,350],[-900,100],[-820,-180],[-650,-450],[-350,-680]] },
+  { name: "2026 F1 // ROUND 6: CANADIAN GP (MONTREAL)", points: [[0,-780],[380,-780],[680,-620],[850,-380],[800,-100],[650,120],[420,250],[180,220],[40,80],[-120,180],[-350,350],[-580,480],[-800,380],[-900,120],[-850,-120],[-700,-350],[-450,-580],[-200,-700]] },
+  { name: "2026 F1 // ROUND 7: MONACO GRAND PRIX", points: [[0,-720],[320,-720],[600,-580],[780,-350],[800,-60],[680,140],[440,220],[200,190],[70,60],[40,-90],[-80,-200],[-280,-180],[-450,-50],[-620,90],[-780,50],[-880,-140],[-840,-380],[-660,-580],[-340,-680]] },
+  { name: "2026 F1 // ROUND 8: SPANISH GP (BARCELONA)", points: [[0,-800],[400,-780],[720,-620],[880,-380],[820,-100],[650,100],[450,280],[200,220],[50,90],[-120,220],[-350,400],[-580,520],[-800,400],[-900,150],[-820,-100],[-680,-350],[-420,-580],[-200,-700]] },
+  { name: "2026 F1 // ROUND 9: AUSTRIAN GP (SPIELBERG)", points: [[0,-750],[420,-750],[750,-600],[850,-350],[750,-100],[550,50],[720,220],[800,480],[650,700],[350,780],[50,700],[-180,520],[-420,320],[-650,450],[-850,280],[-880,0],[-750,-280],[-500,-520],[-250,-680]] },
+  { name: "2026 F1 // ROUND 10: BRITISH GP (SILVERSTONE)", points: [[0,-800],[350,-780],[650,-650],[820,-420],[850,-100],[720,180],[480,320],[220,290],[40,120],[-150,220],[-380,380],[-590,520],[-800,410],[-920,180],[-900,-80],[-780,-320],[-560,-520],[-280,-700]] },
+  { name: "2026 F1 // ROUND 11: BELGIAN GP (SPA-FRANCORCHAMPS)", points: [[0,-820],[400,-820],[750,-680],[920,-420],[860,-120],[680,80],[520,260],[380,480],[150,650],[-120,720],[-380,620],[-600,420],[-780,200],[-880,-60],[-820,-320],[-650,-550],[-380,-720]] },
+  { name: "2026 F1 // ROUND 12: HUNGARIAN GP (BUDAPEST)", points: [[0,-750],[380,-750],[700,-620],[850,-380],[780,-120],[580,20],[700,220],[820,480],[700,720],[380,820],[60,750],[-180,580],[-420,380],[-650,500],[-850,320],[-880,20],[-780,-250],[-520,-500],[-220,-680]] },
+  { name: "2026 F1 // ROUND 13: DUTCH GP (ZANDVOORT)", points: [[0,-720],[350,-720],[650,-580],[800,-320],[750,-80],[580,100],[720,300],[820,550],[680,750],[350,820],[40,720],[-160,520],[-400,320],[-620,450],[-820,280],[-850,-20],[-750,-280],[-500,-500],[-220,-650]] },
+  { name: "2026 F1 // ROUND 14: ITALIAN GP (MONZA)", points: [[0,-850],[480,-850],[820,-700],[920,-450],[850,-150],[650,-20],[780,180],[850,450],[720,700],[420,820],[100,780],[-120,620],[-320,400],[-500,180],[-750,250],[-920,80],[-880,-200],[-720,-480],[-480,-700]] },
+  { name: "2026 F1 // ROUND 15: AZERBAIJAN GP (BAKU)", points: [[0,-800],[450,-800],[800,-650],[920,-380],[850,-100],[650,50],[800,250],[850,520],[700,750],[350,850],[20,780],[-200,580],[-450,380],[-700,520],[-900,320],[-920,0],[-800,-300],[-550,-580],[-250,-700]] },
+  { name: "2026 F1 // ROUND 16: SINGAPORE GRAND PRIX", points: [[0,-750],[380,-750],[680,-600],[820,-350],[780,-80],[600,120],[400,250],[180,220],[40,100],[-120,220],[-350,400],[-580,520],[-800,400],[-900,150],[-850,-80],[-720,-320],[-480,-550],[-200,-680]] },
+  { name: "2026 F1 // ROUND 17: UNITED STATES GP (AUSTIN)", points: [[0,-820],[420,-800],[750,-650],[880,-380],[820,-100],[650,80],[800,300],[850,580],[700,800],[380,880],[50,800],[-180,600],[-420,400],[-680,550],[-880,350],[-900,50],[-800,-250],[-550,-520],[-250,-720]] },
+  { name: "2026 F1 // ROUND 18: MEXICO CITY GRAND PRIX", points: [[0,-780],[400,-780],[720,-620],[850,-380],[800,-100],[620,80],[780,280],[850,550],[700,780],[350,850],[40,780],[-160,580],[-400,380],[-650,520],[-850,320],[-880,20],[-780,-250],[-520,-500],[-220,-680]] },
+  { name: "2026 F1 // ROUND 19: SÃO PAULO GP (INTERLAGOS)", points: [[0,-750],[380,-750],[680,-600],[820,-350],[780,-80],[600,120],[400,250],[180,220],[40,100],[-120,220],[-350,400],[-580,520],[-800,400],[-900,150],[-850,-80],[-720,-320],[-480,-550],[-200,-680]] },
+  { name: "2026 F1 // ROUND 20: LAS VEGAS GRAND PRIX", points: [[0,-850],[500,-850],[850,-680],[920,-420],[850,-150],[620,-50],[750,150],[880,400],[780,680],[450,850],[120,820],[-120,650],[-350,420],[-580,520],[-820,380],[-900,120],[-850,-150],[-680,-480],[-420,-700]] },
+  { name: "2026 F1 // ROUND 21: QATAR GRAND PRIX (LUSAIL)", points: [[0,-800],[450,-800],[780,-650],[900,-400],[820,-150],[650,0],[780,200],[850,450],[700,700],[380,820],[80,750],[-150,580],[-350,380],[-580,480],[-820,350],[-900,100],[-820,-180],[-650,-450],[-350,-680]] },
+  { name: "2026 F1 // ROUND 22: ABU DHABI GP (YAS MARINA)", points: [[0,-820],[450,-820],[800,-680],[900,-420],[820,-120],[650,20],[800,220],[880,500],[720,750],[380,850],[60,780],[-180,580],[-420,380],[-680,520],[-880,320],[-900,0],[-800,-280],[-550,-550],[-250,-720]] }
+];
+
+let trackCurve; let trackPoints = []; let trackTangents = []; let trackLength = 0;
+const trackGroup = new THREE.Group();
+scene.add(trackGroup);
+
+/* ========================================================= TRACK GENERATION ========================================================= */
+function buildTrack(index){
+  while(trackGroup.children.length){ trackGroup.remove(trackGroup.children[0]); }
+  const data = tracks[index];
+  document.getElementById("trackName").innerText = data.name;
+  
+  const controlPoints = data.points.map(p => new THREE.Vector3(p[0], 0, p[1]));
+  trackCurve = new THREE.CatmullRomCurve3(controlPoints, true, "centripetal", .45);
+  trackPoints = []; trackTangents = [];
+  for(let i=0; i<TRACK_SAMPLES; i++){
+    const t = i / TRACK_SAMPLES;
+    trackPoints.push(trackCurve.getPointAt(t));
+    trackTangents.push(trackCurve.getTangentAt(t).normalize());
+  }
+
+  trackLength = 0;
+  for(let i=0; i<TRACK_SAMPLES; i++){
+    trackLength += trackPoints[i].distanceTo(trackPoints[(i+1)%TRACK_SAMPLES]);
+  }
+
+  // ROAD MESH
+  const roadPositions = []; const roadIndices = [];
+  for(let i=0; i<TRACK_SAMPLES; i++){
+    const p = trackPoints[i], t = trackTangents[i];
+    const right = new THREE.Vector3(-t.z, 0, t.x).normalize();
+    const leftP = p.clone().addScaledVector(right, -ROAD_WIDTH/2);
+    const rightP = p.clone().addScaledVector(right, ROAD_WIDTH/2);
+    const base = i*2;
+    roadPositions.push(leftP.x, ROAD_HEIGHT, leftP.z, rightP.x, ROAD_HEIGHT, rightP.z);
+    roadIndices.push(base, ((i+1)%TRACK_SAMPLES)*2, base+1, base+1, ((i+1)%TRACK_SAMPLES)*2, ((i+1)%TRACK_SAMPLES)*2+1);
+  }
+  const roadGeo = new THREE.BufferGeometry();
+  roadGeo.setAttribute("position", new THREE.Float32BufferAttribute(roadPositions, 3));
+  roadGeo.setIndex(roadIndices);
+  roadGeo.computeVertexNormals();
+  const road = new THREE.Mesh(roadGeo, roadMat);
+  road.receiveShadow = true;
+  trackGroup.add(road);
+
+  // CURBS
+  const curbGroup = new THREE.Group();
+  for(let i=0; i<TRACK_SAMPLES; i+=3){
+    const p = trackPoints[i], t = trackTangents[i];
+    const right = new THREE.Vector3(-t.z, 0, t.x).normalize();
+    for(const side of [-1, 1]){
+      const curb = new THREE.Mesh(new THREE.BoxGeometry(CURB_WIDTH, .16, 6.8), (Math.floor(i/3)%2===0) ? curbRed : curbWhite);
+      curb.position.copy(p).addScaledVector(right, side*(ROAD_WIDTH/2 + CURB_WIDTH/2));
+      curb.position.y = ROAD_HEIGHT + .08;
+      curb.rotation.y = Math.atan2(-t.x, -t.z);
+      curbGroup.add(curb);
+    }
+  }
+  trackGroup.add(curbGroup);
+
+  // START LINE
+  const start = trackPoints[0], tangent = trackTangents[0];
+  const startLine = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_WIDTH, 8), new THREE.MeshBasicMaterial({color:0xffffff, side:THREE.DoubleSide}));
+  startLine.rotation.x = -Math.PI/2;
+  startLine.rotation.z = Math.atan2(tangent.z, tangent.x);
+  startLine.position.copy(start);
+  startLine.position.y = ROAD_HEIGHT + .07;
+  trackGroup.add(startLine);
+
+  buildScenery();
+}
+
+/* ========================================================= SCENERY ========================================================= */
+function buildScenery(){
+  const scenery = new THREE.Group();
+  for(let i=0; i<100; i++){
+    const index = Math.floor(Math.random()*TRACK_SAMPLES);
+    const p = trackPoints[index], t = trackTangents[index];
+    const right = new THREE.Vector3(-t.z, 0, t.x).normalize();
+    const side = Math.random() < .5 ? -1 : 1;
+    const distance = ROAD_WIDTH/2 + 35 + Math.random()*200;
+    
+    const obj = new THREE.Group();
+    const building = new THREE.Mesh(
+      new THREE.BoxGeometry(12+Math.random()*15, 8+Math.random()*18, 12+Math.random()*15),
+      mat([0x7c8589, 0xa29b87, 0x5e6469][Math.floor(Math.random()*3)])
+    );
+    building.position.y = building.geometry.parameters.height/2;
+    obj.add(building);
+    obj.position.copy(p).addScaledVector(right, side*distance);
+    scenery.add(obj);
+  }
+  trackGroup.add(scenery);
+}
+
+/* ========================================================= CAR BUILDER ========================================================= */
+function wedgeGeometry(length, height, frontWidth, rearWidth){
+  const z1 = -length/2, z2 = length/2;
+  const verts =
