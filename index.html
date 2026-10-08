@@ -28,6 +28,7 @@ canvas{display:block}
 .card table{width:100%;border-collapse:collapse;font-size:14px;font-weight:700}
 .card td,.card th{padding:5px 8px;text-align:left}.card th{font-size:11px;opacity:.6;letter-spacing:1px}
 .card tr.me{background:#f2f2f7;color:#111}.card td i{display:block;width:5px;height:16px}.card b{color:#3ddc84}.card tr.me b{color:#0a7d3a}
+.tw{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;margin-top:6px}
 #mm{position:absolute;top:100px;right:16px;width:190px;height:145px;border-radius:9px;border:1px solid rgba(255,255,255,.13)}
 </style></head><body>
 <div id="hud">
@@ -38,7 +39,7 @@ canvas{display:block}
 <div id="cd">3</div><div id="msg"></div>
 <div id="sp" class="p"><div id="speed">0</div><small>KM/H</small></div>
 <div id="gear" class="p">N</div>
-<div id="ctl" class="p">W/↑ THROTTLE · A/D STEER · S/↓ BRAKE · SPACE HANDBRAKE · R RESET · ENTER NEXT RACE</div>
+<div id="ctl" class="p">W/↑ THROTTLE · A/D STEER · S/↓ BRAKE · SPACE HANDBRAKE · R RESET · N NEXT TRACK · ENTER NEXT RACE</div>
 </div>
 <div id="ov"></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
@@ -72,7 +73,7 @@ const tracks=[
 ["R24 ABU DHABI // YAS MARINA",[[0,-700],[500,-720],[760,-640],[800,-440],[640,-340],[640,-180],[820,-60],[820,200],[620,320],[480,200],[320,300],[360,460],[160,560],[-120,520],[-360,560],[-640,480],[-760,280],[-640,100],[-780,-100],[-720,-360],[-540,-560],[-280,-680]]]
 ];
 const $=id=>document.getElementById(id),V=THREE.Vector3,clamp=THREE.MathUtils.clamp,nA=a=>Math.atan2(Math.sin(a),Math.cos(a));
-const W=40,C=3.5,N=720,MAXV=172,LAPS=3,AIN=10,R=2.25,BL=W/2+5.2;
+const CRASH=8,W=40,C=3.5,N=720,MAXV=172,LAPS=3,AIN=10,R=2.25,BL=W/2+5.2;
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x86b9df);scene.fog=new THREE.Fog(0x86b9df,400,3500);
 const cam=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.1,5000);
 const ren=new THREE.WebGLRenderer({antialias:true});ren.setSize(innerWidth,innerHeight);ren.setPixelRatio(Math.min(devicePixelRatio,1.7));
@@ -87,9 +88,24 @@ let cur=0,pts=[],tans=[],len=0,mb={};const tg=new THREE.Group();scene.add(tg);
 const P=(i,off,y)=>{i=((i%N)+N)%N;const p=pts[i],t=tans[i];return new V(p.x-t.z*(off||0),y||0,p.z+t.x*(off||0));};
 function strip(fa,fb,mat,cf){const pos=[],col=[];for(let i=0;i<N;i++){const a=fa(i),b=fb(i),c=fa(i+1),d=fb(i+1);pos.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z,b.x,b.y,b.z,d.x,d.y,d.z,c.x,c.y,c.z);if(cf){const k=cf(i);for(let j=0;j<6;j++)col.push(k.r,k.g,k.b);}}
 const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));if(cf)g.setAttribute("color",new THREE.Float32BufferAttribute(col,3));g.computeVertexNormals();tg.add(new THREE.Mesh(g,mat));}
+/* Adds braking chicanes into every long straight (not the start straight) */
+function addCorners(ps){
+ const out=[];
+ for(let i=0;i<ps.length;i++){
+  const a=ps[i],b=ps[(i+1)%ps.length];out.push(a);
+  const dx=b.x-a.x,dz=b.z-a.z,L=Math.hypot(dx,dz);
+  if(L<230||i===0||i===ps.length-1)continue;
+  const n=Math.max(1,Math.floor(L/300)),amp=clamp(.09*L,22,34),nx=-dz/L,nz=dx/L,d=.14/n;
+  for(let q=0;q<n;q++){
+   const c=(q+.5)/n,sg=(q+i)%2?1:-1;
+   out.push(new V(a.x+dx*(c-d)+nx*sg*amp,0,a.z+dz*(c-d)+nz*sg*amp),new V(a.x+dx*(c+d)-nx*sg*amp,0,a.z+dz*(c+d)-nz*sg*amp));
+  }
+ }
+ return out;
+}
 function buildTrack(k){
  tg.traverse(o=>{if(o.geometry)o.geometry.dispose()});tg.clear();
- const cv=new THREE.CatmullRomCurve3(tracks[k][1].map(q=>new V(q[0]*(tracks[k][2]||1),0,q[1]*(tracks[k][2]||1))),true,"centripetal");
+ const cv=new THREE.CatmullRomCurve3(addCorners(tracks[k][1].map(q=>new V(q[0]*(tracks[k][2]||1)*.8,0,q[1]*(tracks[k][2]||1)*.8))),true,"centripetal");
  pts=[];tans=[];for(let i=0;i<N;i++){pts.push(cv.getPointAt(i/N));tans.push(cv.getTangentAt(i/N).normalize());}
  len=0;for(let i=0;i<N;i++)len+=pts[i].distanceTo(pts[(i+1)%N]);
  buildAI();strip(i=>P(i,-W/2,.05),i=>P(i,W/2,.05),roadM);
@@ -136,13 +152,12 @@ function near(c){let best=c.idx,bd=1e18;const p=c.root.position;for(let k=-25;k<
 function place(c,idx,off){const i=((idx%N)+N)%N,p=P(i,off,.03),t=tans[i];c.root.position.copy(p);c.yaw=Math.atan2(-t.x,-t.z);c.root.rotation.y=c.yaw;c.vel.set(0,0,0);c.speed=0;c.idx=i;}
 function reset(){
  started=false;done=false;cdT=0;rt=0;snap=true;
- place(player,0,0);player.lap=1;player.last=0;player.prog=0;
  const seg=len/N;
- for(let i=1;i<cars.length;i++){const c=cars[i],row=Math.floor((i-1)/2),s=(i-1)%2?1:-1;place(c,-Math.round((32+row*27)/seg),s*5.8);c.lane=s*4;c.lap=0;c.prog=c.last=c.idx/N;c.skill=D.sk[0]+Math.random()*(D.sk[1]-D.sk[0]);}
+ cars.forEach((c,i)=>{const k=i===0?1:i===1?0:i,s=k%2?1:-1;place(c,-Math.round(k*13/seg),s*3.2);c.lane=s*3;c.lap=k?0:1;c.prog=c.last=c.idx/N;if(i)c.skill=D.sk[0]+Math.random()*(D.sk[1]-D.sk[0]);});
  $("msg").innerHTML="";$("cd").textContent="3";upd();
 }
 function setTrack(k){cur=(k+tracks.length)%tracks.length;buildTrack(cur);reset();}
-addEventListener("keydown",e=>{keys[e.code]=true;aud();if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code))e.preventDefault();if(e.code==="KeyR"&&!done&&!paused)reset();if(e.code==="Enter"&&ovMode==="next"&&rnd<tracks.length)nextRace();});
+addEventListener("keydown",e=>{keys[e.code]=true;aud();if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code))e.preventDefault();if(e.code==="KeyR"&&!done&&!paused)reset();if(e.code==="Enter"&&ovMode==="next"&&rnd<tracks.length)nextRace();if(e.code==="KeyN"&&!paused&&!done){rnd=(cur+1)%tracks.length;svSave();setTrack(rnd);}});
 addEventListener("keyup",e=>{keys[e.code]=false});addEventListener("pointerdown",()=>aud());
 function wheelsSpin(c,dt){for(const w of c.wheels)w.rotation.x-=c.speed*dt/.48;}
 function updPlayer(dt){
@@ -186,7 +201,7 @@ function updAI(c,dt){
 }
 function walls(c){
  const p=pts[c.idx],t=tans[c.idx],px=c.root.position.x-p.x,pz=c.root.position.z-p.z,rx=-t.z,rz=t.x,d=px*rx+pz*rz,lim=BL-1.4;
- if(Math.abs(d)>lim){const s=Math.sign(d),o=Math.abs(d)-lim;c.root.position.x-=rx*s*o;c.root.position.z-=rz*s*o;const vr=c.vel.x*rx+c.vel.z*rz;if(vr*s>0){c.vel.x-=rx*vr*1.1;c.vel.z-=rz*vr*1.1;}}
+ if(Math.abs(d)>lim){const s=Math.sign(d),o=Math.abs(d)-lim;c.root.position.x-=rx*s*o;c.root.position.z-=rz*s*o;const vr=c.vel.x*rx+c.vel.z*rz;if(vr*s>0){if(c.player&&vr*s>CRASH)finish(true);c.vel.x-=rx*vr*1.1;c.vel.z-=rz*vr*1.1;}}
 }
 function carHits(){
  for(let a=0;a<cars.length;a++)for(let b=a+1;b<cars.length;b++){
@@ -194,7 +209,7 @@ function carHits(){
   if(d>=m||d<1e-3)continue;const nx=dx/d,nz=dz/d,o=(m-d)/2;
   A.root.position.x-=nx*o;A.root.position.z-=nz*o;B.root.position.x+=nx*o;B.root.position.z+=nz*o;
   const cl=(B.vel.x-A.vel.x)*nx+(B.vel.z-A.vel.z)*nz;
-  if(cl<0){const j=-1.24*cl/2;A.vel.x-=nx*j;A.vel.z-=nz*j;B.vel.x+=nx*j;B.vel.z+=nz*j;}
+  if(cl<0){if((A.player||B.player)&&-cl>CRASH)finish(true);const j=-1.24*cl/2;A.vel.x-=nx*j;A.vel.z-=nz*j;B.vel.x+=nx*j;B.vel.z+=nz*j;}
  }
 }
 function lapCheck(c){c.prog=c.idx/N;if(c.last>.8&&c.prog<.2)c.lap++;else if(c.last<.2&&c.prog>.8)c.lap--;c.last=c.prog;}
@@ -205,13 +220,14 @@ function upd(){
  $("trk").textContent=tracks[cur][0]+" • LAP "+clamp(player.lap,1,LAPS)+"/"+LAPS;
  const b=loadBest();$("best").textContent=b?"BEST "+fmt(b):"BEST --:--.---";$("time").textContent=fmt(rt);
 }
-function finish(){
- done=true;const q=cars.map(c=>({c,d:c.lap+c.prog})).sort((a,b)=>b.d-a.d),gain={};
+function finish(dnf){
+ if(done)return;done=true;
+ const q=cars.map(c=>({c,d:c.lap+c.prog,dnf:!!dnf&&c===player})).sort((a,b)=>a.dnf-b.dnf||b.d-a.d),gain={};
  q.forEach((x,i)=>{const g=PTS[i]||0;gain[x.c.code]=g;tot[x.c.code]=(tot[x.c.code]||0)+g;});
  const pp=q.findIndex(x=>x.c===player)+1;rnd++;svSave();
  if(rnd>=tracks.length){try{localStorage.removeItem("htChamp")}catch(e){}}
- $("msg").innerHTML="FINISH! P"+pp+"<small>"+fmt(rt)+" • +"+gain.VER+" PTS</small>";
- const b=loadBest();if(!b||rt<b)saveBest(rt);
+ $("msg").innerHTML=dnf?"CRASHED OUT!<small>DNF • +0 PTS</small>":"FINISH! P"+pp+"<small>"+fmt(rt)+" • +"+gain.VER+" PTS</small>";
+ if(!dnf){const b=loadBest();if(!b||rt<b)saveBest(rt);}
  setTimeout(()=>standings(q,gain),2800);
 }
 function hud(){
@@ -243,20 +259,25 @@ function menu(){
  ovMode="menu";paused=true;let sv=null;try{sv=JSON.parse(localStorage.getItem("htChamp")||"null")}catch(e){}
  if(sv&&!(DIFF[sv.dk]&&sv.rnd<tracks.length))sv=null;
  ov.style.display="flex";
- ov.innerHTML='<div class="card"><h1>HYPERTRACK</h1><div class="sub">2026 CHAMPIONSHIP • 24 ROUNDS • 3 LAPS EACH</div><div class="sub">SELECT AI DIFFICULTY TO START</div><div>'+Object.keys(DIFF).map(k=>'<button data-d="'+k+'">'+DIFF[k].n+'</button>').join("")+'</div>'+(sv?'<div><button id="cont">CONTINUE: ROUND '+(sv.rnd+1)+' • '+DIFF[sv.dk].n+'</button></div>':'')+'</div>';
+ ov.innerHTML='<div class="card"><h1>HYPERTRACK</h1><div class="sub">2026 WORLD CHAMPIONSHIP • 24 ROUNDS • 3 LAPS EACH</div><div class="sub">CRASH INTO A WALL OR ANOTHER CAR AND YOU ARE OUT OF THE RACE</div><div class="sub">SELECT AI DIFFICULTY TO START</div><div>'+Object.keys(DIFF).map(k=>'<button data-d="'+k+'">'+DIFF[k].n+'</button>').join("")+'</div>'+(sv?'<div><button id="cont">CONTINUE: ROUND '+(sv.rnd+1)+' • '+DIFF[sv.dk].n+'</button></div>':'')+'</div>';
  ov.querySelectorAll("button[data-d]").forEach(b=>b.onclick=()=>startChamp(b.dataset.d,0,{}));
  const c=$("cont");if(c)c.onclick=()=>startChamp(sv.dk,sv.rnd,sv.tot);
 }
 function startChamp(k,r,t){dk=k;D=DIFF[k];rnd=r;tot=t;codes.forEach(c=>{if(tot[c]==null)tot[c]=0});svSave();nextRace();}
 function nextRace(){ov.style.display="none";ovMode="";paused=false;setTrack(rnd);}
+const TEAMS=["Red Bull","McLaren","Ferrari","Ferrari","Mercedes","McLaren","Mercedes","Aston Martin","Williams","Williams","Alpine"];
 function standings(q,gain){
  ovMode="next";paused=true;
- const rows=codes.map((c,i)=>({c,i,t:tot[c]||0})).sort((a,b)=>b.t-a.t||a.i-b.i),lead=rows[0].t,fin=rnd>=tracks.length,pos={};
- q.forEach((x,i)=>pos[x.c.code]=i+1);
+ const rows=codes.map((c,i)=>({c,i,t:tot[c]||0})).sort((a,b)=>b.t-a.t||a.i-b.i),lead=rows[0].t,fin=rnd>=tracks.length,pos={},tm={};
+ q.forEach((x,i)=>pos[x.c.code]=x.dnf?"DNF":"P"+(i+1));
+ codes.forEach((c,i)=>{const n=TEAMS[i];if(!tm[n])tm[n]={n,i,t:0,g:0};tm[n].t+=tot[c]||0;tm[n].g+=gain[c]||0;});
+ const trs=Object.values(tm).sort((a,b)=>b.t-a.t||a.i-b.i),tl=trs[0].t;
+ const dt='<table><tr><th>POS</th><th></th><th>DRIVER</th><th>RACE</th><th>PTS</th><th>GAP</th></tr>'+rows.map((r,k)=>'<tr'+(r.c==="VER"?' class="me"':'')+'><td>'+(k+1)+'</td><td><i style="background:#'+hx(r.i)+'"></i></td><td>'+r.c+'</td><td>'+pos[r.c]+' <b>+'+gain[r.c]+'</b></td><td>'+r.t+'</td><td>'+(k?'-'+(lead-r.t):'')+'</td></tr>').join("")+'</table>';
+ const ct='<table><tr><th>POS</th><th></th><th>TEAM</th><th>RACE</th><th>PTS</th><th>GAP</th></tr>'+trs.map((r,k)=>'<tr'+(r.n==="Red Bull"?' class="me"':'')+'><td>'+(k+1)+'</td><td><i style="background:#'+hx(r.i)+'"></i></td><td>'+r.n+'</td><td><b>+'+r.g+'</b></td><td>'+r.t+'</td><td>'+(k?'-'+(tl-r.t):'')+'</td></tr>').join("")+'</table>';
+ const head=fin?(rows[0].c==="VER"?'YOU ARE THE 2026 WORLD CHAMPION!':'2026 WORLD CHAMPION: '+rows[0].c)+' • CONSTRUCTORS CHAMPION: '+trs[0].n.toUpperCase():'ROUND '+rnd+' / '+tracks.length+' • '+tracks[rnd-1][0].replace(/^R\d+ /,'');
  ov.style.display="flex";
- ov.innerHTML='<div class="card"><div class="sub">'+(fin?'FINAL STANDINGS':'ROUND '+rnd+' / '+tracks.length+' • '+tracks[rnd-1][0].replace(/^R\d+ /,''))+'</div><h2>DRIVERS\' CHAMPIONSHIP</h2><table><tr><th>POS</th><th></th><th>DRIVER</th><th>RACE</th><th>PTS</th><th>GAP</th></tr>'+
- rows.map((r,k)=>'<tr'+(r.c==="VER"?' class="me"':'')+'><td>'+(k+1)+'</td><td><i style="background:#'+hx(r.i)+'"></i></td><td>'+r.c+'</td><td>P'+pos[r.c]+' <b>+'+gain[r.c]+'</b></td><td>'+r.t+'</td><td>'+(k?'-'+(lead-r.t):'')+'</td></tr>').join("")+'</table>'+
- (fin?'<div class="sub">CHAMPION: '+rows[0].c+'</div><button id="nx">NEW CHAMPIONSHIP</button>':'<button id="nx">NEXT RACE ▶ (ENTER)</button>')+'</div>';
+ ov.innerHTML='<div class="card"><div class="sub">'+head+'</div><div class="tw"><div><h2>DRIVERS</h2>'+dt+'</div><div><h2>CONSTRUCTORS</h2>'+ct+'</div></div>'+
+ (fin?'<button id="nx">NEW CHAMPIONSHIP</button>':'<button id="nx">NEXT RACE ▶ (ENTER)</button>')+'</div>';
  $("nx").onclick=fin?menu:nextRace;
 }
 const clock=new THREE.Clock();
@@ -275,17 +296,3 @@ function loop(){
 addEventListener("resize",()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();ren.setSize(innerWidth,innerHeight);});
 setTrack(0);menu();loop();
 </script></body></html>
-addEventListener("keydown",e=>{
-  keys[e.code]=true;
-  aud();
-  if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code))e.preventDefault();
-  if(e.code==="KeyR"&&!done&&!paused)reset();
-  if(e.code==="Enter"&&ovMode==="next"&&rnd<tracks.length)nextRace();
-
-  /* N = next track */
-  if(e.code==="KeyN"&&!paused&&!done){
-    rnd=(cur+1)%tracks.length;
-    svSave();
-    setTrack(rnd);
-  }
-});
