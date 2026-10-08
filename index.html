@@ -275,4 +275,17 @@ function loop(){
 addEventListener("resize",()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();ren.setSize(innerWidth,innerHeight);});
 setTrack(0);menu();loop();
 </script></body></html>
-if(e.code==="KeyN"&&!paused&&!done){rnd=(cur+1)%tracks.length;svSave();setTrack(rnd);}
+addEventListener("keydown",e=>{
+  keys[e.code]=true;
+  aud();
+  if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code))e.preventDefault();
+  if(e.code==="KeyR"&&!done&&!paused)reset();
+  if(e.code==="Enter"&&ovMode==="next"&&rnd<tracks.length)nextRace();
+
+  /* N = next track */
+  if(e.code==="KeyN"&&!paused&&!done){
+    rnd=(cur+1)%tracks.length;
+    svSave();
+    setTrack(rnd);
+  }
+});
