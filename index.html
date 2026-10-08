@@ -275,3 +275,4 @@ function loop(){
 addEventListener("resize",()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();ren.setSize(innerWidth,innerHeight);});
 setTrack(0);menu();loop();
 </script></body></html>
+if(e.code==="KeyN"&&!paused&&!done){rnd=(cur+1)%tracks.length;svSave();setTrack(rnd);}
