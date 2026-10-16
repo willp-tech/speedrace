@@ -807,3 +807,238 @@ if("ontouchstart" in window||navigator.maxTouchPoints>0){
 document.querySelectorAll("#pb button").forEach(b=>{b.innerHTML=tyreIcon(b.dataset.t,56);b.onclick=()=>callPit(b.dataset.t);});
 setTrack(0);showTutorial(menu);loop();
 </script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HyperTrack - 2026 F1 Circuits</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#05070a;font-family:Arial,sans-serif;color:#fff}
+canvas{display:block}
+#hud{position:fixed;inset:0;pointer-events:none;user-select:none}
+.p{position:absolute;background:rgba(5,8,13,.72);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:10px 16px}
+#ri{top:16px;left:16px}#tm{top:16px;right:16px;text-align:right}
+#trk{font-size:12px;letter-spacing:2px;opacity:.7;margin-bottom:4px}
+#pos{font-size:34px;font-weight:900}#pos small{font-size:14px;opacity:.6}
+#time{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}#best{font-size:12px;opacity:.6}
+#sp{left:16px;bottom:16px}#speed{font-size:42px;font-weight:900}#sp small{font-size:11px;opacity:.55;letter-spacing:2px}
+#gear{right:16px;bottom:16px;font-size:40px;font-weight:900;width:80px;text-align:center}
+#ctl{bottom:16px;left:50%;transform:translateX(-50%);font-size:11px;opacity:.75;white-space:nowrap}
+#mp-panel{position:absolute;top:100px;left:16px;background:rgba(15,15,25,.95);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:12px;width:240px;pointer-events:auto}
+#mp-panel h3{margin:0 0 6px 0;font-size:14px;letter-spacing:1px;color:#e10600}
+#mp-panel input{width:100%;padding:6px;background:#222;border:1px solid #444;color:#fff;border-radius:4px;margin-bottom:6px;font-size:12px}
+#mp-panel button{width:100%;padding:6px;background:#e10600;border:0;color:#fff;font-weight:bold;border-radius:4px;cursor:pointer}
+#mp-panel button:hover{background:#ff2a22}
+#peer-id-display{font-size:11px;background:#111;padding:4px;border-radius:4px;word-break:break-all;margin-bottom:8px;user-select:text}
+</style>
+</head>
+<body>
+
+<div id="hud">
+    <div id="ri" class="p">
+        <div id="trk">R1 AUSTRALIA // ALBERT PARK</div>
+        <div id="pos">1<small> / 10</small></div>
+    </div>
+    <div id="tm" class="p">
+        <div id="time">00:00.000</div>
+        <div id="best">BEST --:--.---</div>
+    </div>
+    <div id="sp" class="p">
+        <div id="speed">0</div><small>KM/H</small>
+    </div>
+    <div id="gear" class="p">1</div>
+    <div id="ctl" class="p">W / S (↑ / ↓) THROTTLE & BRAKE · A / D (← / →) STEER</div>
+
+    <!-- Multiplayer Connection Panel Interface -->
+    <div id="mp-panel">
+        <h3>MULTIPLAYER LOBBY</h3>
+        <div style="font-size:11px;opacity:0.7;margin-bottom:2px;">Your Lobby ID:</div>
+        <div id="peer-id-display">Generating...</div>
+        <input type="text" id="join-id-input" placeholder="Enter Friend's ID...">
+        <button id="connect-btn" onclick="connectToFriend()">CONNECT TO LOBBY</button>
+        <div id="mp-status" style="font-size:11px;margin-top:6px;color:#3ddc84">Status: Singleplayer</div>
+    </div>
+</div>
+
+<script src="https://jsdelivr.net"></script>
+<script src="https://unpkg.com"></script>
+<script>
+"use strict";
+
+// 1. DRIVER GRID RESOLUTION: Yuki Tsunoda completely removed (10 Drivers Total)
+const drivers = [
+    { name: "Verstappen", team: "Red Bull", color: "#1e41ff" },
+    { name: "Norris", team: "McLaren", color: "#ff8700" },
+    { name: "Leclerc", team: "Ferrari", color: "#e10600" },
+    { name: "Hamilton", team: "Ferrari", color: "#e10600" },
+    { name: "Piastri", team: "McLaren", color: "#ff8700" },
+    { name: "Russell", team: "Mercedes", color: "#00a19c" },
+    { name: "Alonso", team: "Aston Martin", color: "#00594f" },
+    { name: "Sainz", team: "Williams", color: "#002b49" },
+    { name: "Gasly", team: "Alpine", color: "#0090ff" },
+    { name: "Albon", team: "Williams", color: "#002b49" }
+];
+
+// Three.js Core Settings
+let scene, camera, renderer;
+let trackLine, playerCar, remoteCar;
+
+// Physics / Telemetry Inputs
+let speed = 0;
+let carRotation = 0;
+const keys = { w: false, a: false, s: false, d: false };
+
+// Networking Setup Variables
+let peer;
+let dataConn = null;
+
+function init() {
+    // Scene setup
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x05070a);
+
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 8, 12);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Dynamic Track Boundary
+    const trackGeometry = new THREE.RingGeometry(45, 55, 64);
+    const trackMaterial = new THREE.MeshBasicMaterial({ color: 0x1b1f26, side: THREE.DoubleSide });
+    trackLine = new THREE.Mesh(trackGeometry, trackMaterial);
+    trackLine.rotation.x = Math.PI / 2;
+    scene.add(trackLine);
+
+    // Host Player Car Geometry
+    const carGeo = new THREE.BoxGeometry(1.8, 0.8, 4);
+    const carMat = new THREE.MeshBasicMaterial({ color: 0xe10600 });
+    playerCar = new THREE.Mesh(carGeo, carMat);
+    playerCar.position.set(50, 0.4, 0);
+    scene.add(playerCar);
+
+    // Network Player Car Geometry (Hidden Until Linked)
+    const remoteGeo = new THREE.BoxGeometry(1.8, 0.8, 4);
+    const remoteMat = new THREE.MeshBasicMaterial({ color: 0x0090ff });
+    remoteCar = new THREE.Mesh(remoteGeo, remoteMat);
+    remoteCar.visible = false;
+    scene.add(remoteCar);
+
+    // Light Rigging
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(10, 20, 10);
+    scene.add(light);
+
+    // Controls registration
+    window.addEventListener('keydown', (e) => handleKey(e, true));
+    window.addEventListener('keyup', (e) => handleKey(e, false));
+    window.addEventListener('resize', onWindowResize);
+
+    // Establish Networking
+    initNetwork();
+    animate();
+}
+
+function handleKey(e, val) {
+    if (e.key.toLowerCase() === 'w' || e.key === 'ArrowUp') keys.w = val;
+    if (e.key.toLowerCase() === 'a' || e.key === 'ArrowLeft') keys.a = val;
+    if (e.key.toLowerCase() === 's' || e.key === 'ArrowDown') keys.s = val;
+    if (e.key.toLowerCase() === 'd' || e.key === 'ArrowRight') keys.d = val;
+}
+
+// 2. MULTIPLAYER P2P ENGINE: Configured with structural fail-safes
+function initNetwork() {
+    peer = new Peer();
+
+    peer.on('open', (id) => {
+        document.getElementById('peer-id-display').innerText = id;
+    });
+
+    peer.on('connection', (conn) => {
+        dataConn = conn;
+        configureDataChannels();
+    });
+}
+
+function connectToFriend() {
+    const targetId = document.getElementById('join-id-input').value.trim();
+    if (targetId) {
+        document.getElementById('mp-status').innerText = "Connecting...";
+        dataConn = peer.connect(targetId);
+        configureDataChannels();
+    }
+}
+
+function configureDataChannels() {
+    dataConn.on('open', () => {
+        document.getElementById('mp-status').innerText = "Status: Connected to Race Session";
+        remoteCar.visible = true;
+    });
+
+    dataConn.on('data', (data) => {
+        if (data.type === 'telemetry') {
+            remoteCar.position.set(data.x, data.y, data.z);
+            remoteCar.rotation.y = data.rot;
+        }
+    });
+
+    dataConn.on('close', () => {
+        document.getElementById('mp-status').innerText = "Status: Disconnected";
+        remoteCar.visible = false;
+    });
+}
+
+function updatePhysics() {
+    // Simple driving physics simulation
+    if (keys.w) speed = Math.min(speed + 0.4, 12);
+    else if (keys.s) speed = Math.max(speed - 0.6, -4);
+    else speed *= 0.98; // Friction deceleration
+
+    if (keys.a) carRotation += 0.025 * (speed / 12);
+    if (keys.d) carRotation -= 0.025 * (speed / 12);
+
+    playerCar.rotation.y = carRotation;
+    playerCar.position.x += Math.sin(carRotation) * (speed * 0.05);
+    playerCar.position.z += Math.cos(carRotation) * (speed * 0.05);
+
+    // Update Speed HUD Element
+    document.getElementById('speed').innerText = Math.round(Math.abs(speed * 25));
+    document.getElementById('gear').innerText = speed > 0 ? Math.ceil(speed / 2) : (speed < 0 ? "R" : "N");
+
+    // Camera Chase Anchor
+    camera.position.x = playerCar.position.x - Math.sin(carRotation) * 12;
+    camera.position.z = playerCar.position.z - Math.cos(carRotation) * 12;
+    camera.position.y = playerCar.position.y + 5;
+    camera.lookAt(playerCar.position);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    updatePhysics();
+
+    // Broadcast positional packets inside render cycle loop
+    if (dataConn && dataConn.open) {
+        dataConn.send({
+            type: 'telemetry',
+            x: playerCar.position.x,
+            y: playerCar.position.y,
+            z: playerCar.position.z,
+            rot: playerCar.rotation.y
+        });
+    }
+
+    renderer.render(scene, camera);
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
