@@ -59,6 +59,7 @@ canvas{display:block}
 <div id="ov"></div>
 <div id="hold"></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 "use strict";
 /* 2026 F1 calendar, in round order. Each entry: [name, control points [x,z]] */
@@ -89,10 +90,10 @@ const tracks=[
 ["R24 ABU DHABI // YAS MARINA",[[0,-700],[500,-720],[760,-640],[800,-440],[640,-340],[640,-180],[820,-60],[820,200],[620,320],[480,200],[320,300],[360,460],[160,560],[-120,520],[-360,560],[-640,480],[-760,280],[-640,100],[-780,-100],[-720,-360],[-540,-560],[-280,-680]]]
 ];
 const $=id=>document.getElementById(id),V=THREE.Vector3,clamp=THREE.MathUtils.clamp,nA=a=>Math.atan2(Math.sin(a),Math.cos(a));
-const CRASH=88,W=40,C=3.5,N=720,MAXV=172,LAPS=5,AIN=11,R=2.25,BL=W/2+5.2,TARGET=2300;
+const CRASH=88,W=40,C=3.5,N=720,MAXV=172,LAPS=5,AIN=10,R=2.25,BL=W/2+5.2,TARGET=2300;
 const TY={S:{n:"SOFT",col:"#e10600",base:1.05,rate:.32,d:"FASTEST • WEARS QUICKLY"},M:{n:"MEDIUM",col:"#ffd21f",base:1,rate:.2,d:"BALANCED"},H:{n:"HARD",col:"#eeeeee",base:.96,rate:.13,d:"SLOWER • LASTS LONGEST"}};
 const ramp=i=>{i=((i%N)+N)%N;const s=Math.min(i,N-i);if(s>60)return 0;const u=clamp((60-s)/16,0,1);return u*u*(3-2*u);};
-const perf=c=>({VER:1.035,TSU:1.02})[c.code]||1;
+const perf=c=>({VER:1.035})[c.code]||1;
 const gr=c=>TY[c.tyre].base*(1-.4*Math.pow(Math.min(c.wear,1.2),1.4));
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x86b9df);scene.fog=new THREE.Fog(0x86b9df,400,3500);
 const cam=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.1,5000);
@@ -316,11 +317,11 @@ function mk(color,player,acc,num){
   cyl(r,w,tire);cyl(r*.88,w+.02,ringM);cyl(r*.6,w+.04,rim);cyl(r*.25,w+.06,A);{const sg=Math.sign(wp[0]);for(let k=0;k<5;k++){const sp=new THREE.Mesh(new THREE.BoxGeometry(.05,r*1.1,.07),K);sp.position.x=sg*(w/2+.045);sp.rotation.x=k*Math.PI/5;wg.add(sp);}const hn=new THREE.Mesh(new THREE.CylinderGeometry(r*.1,r*.1,.1,10),rim);hn.rotation.z=Math.PI/2;hn.position.x=sg*(w/2+.09);wg.add(hn);}g.add(wg);wheels.push(wg);}
  const fw=g.children.filter(m=>m.position.z<-3.85);scene.add(g);return{root:g,wheels,fw,tm:ringM,vel:new V(),yaw:0,speed:0,idx:0,lap:0,last:0,prog:0,lane:0,skill:1,dodge:0,adj:1,player};
 }
-const tc=[[0x1b3fbf,0xffc800],[0xff8000,0x47c7fc],[0xdc0000,0xfff200],[0x27f4d2,0x111111],[0x229971,0xcedc00],[0xff87bc,0x0090ff],[0x1868db,0xffffff],[0x6692ff,0xffffff],[0xb7bcc2,0xe3001b],[0xe8e8e8,0xe10600],[0x15171a,0xc9a227],[0x1b3fbf,0xe0103a]],nums=[3,1,16,63,14,10,23,30,27,87,77,22];
+const tc=[[0x1b3fbf,0xffc800],[0xff8000,0x47c7fc],[0xdc0000,0xfff200],[0x27f4d2,0x111111],[0x229971,0xcedc00],[0xff87bc,0x0090ff],[0x1868db,0xffffff],[0x6692ff,0xffffff],[0xb7bcc2,0xe3001b],[0xe8e8e8,0xe10600],[0x15171a,0xc9a227]],nums=[3,1,16,63,14,10,23,30,27,87,77];
 makeEnv();
 const player=mk(tc[0][0],true,tc[0][1],nums[0]),cars=[player];for(let i=1;i<=AIN;i++)cars.push(mk(tc[i][0],false,tc[i][1],nums[i]));
-const TEAMS=["Red Bull","McLaren","Ferrari","Mercedes","Aston Martin","Alpine","Williams","Racing Bulls","Audi","Haas","Cadillac","Red Bull"];
-const codes=["VER","NOR","LEC","RUS","ALO","GAS","ALB","LAW","HUL","BEA","BOT","TSU"],lb=$("lb");
+const TEAMS=["Red Bull","McLaren","Ferrari","Mercedes","Aston Martin","Alpine","Williams","Racing Bulls","Audi","Haas","Cadillac"];
+const codes=["VER","NOR","LEC","RUS","ALO","GAS","ALB","LAW","HUL","BEA","BOT"],lb=$("lb");
 cars.forEach((c,i)=>{c.code=codes[i];const r=document.createElement("div");r.className="r"+(c.player?" me":"");r.innerHTML='<span class="n"></span><span class="c" style="background:#'+tc[i][0].toString(16).padStart(6,"0")+'"></span><span class="d">'+c.code+'</span><span class="g"></span>';lb.appendChild(r);c.row=r;});
 let lbT=0,lampN=0,lightsOut=5;
 const sl=$("sl");for(let k=0;k<5;k++)sl.appendChild(document.createElement("i"));
@@ -388,7 +389,7 @@ function updAI(c,dt){
   if(ah>0&&ah<70&&Math.abs(sd)<6.5){if(ah<30)dg=sd>0?-8:8;if(ah>8&&ah<30&&Math.abs(sd)<4)ts*=1.04;if(Math.abs(sd)<5)ts=Math.min(ts,o.speed+Math.sqrt(Math.max(0,180*(ah-(rt<6?3:6)))));}}
  c.dodge+=(dg-c.dodge)*Math.min(1,3*dt);
  const f=new V(fx,0,fz),r=new V(Math.cos(c.yaw),0,-Math.sin(c.yaw));
- let fs=c.vel.dot(f),ls=c.vel.dot(r);const bf=Math.max(1,Math.pow(c.skill*c.adj*perf(c)*D.race,2));fs+=fs<ts?102*(rt<5?1.35:1)*dt:-(D.br+25)*bf*dt;fs=clamp(fs,0,MAXV*perf(c));ls*=Math.pow(.002,dt);
+ let fs=c.vel.dot(f),ls=c.vel.dot(r);const bf=Math.max(1,Math.pow(c.skill*c.adj*perf(c)*D.race,2));fs+=fs<ts?102*(D.acc||1)*(rt<5?1.35:1)*dt:-(D.br+25)*bf*dt;fs=clamp(fs,0,MAXV*perf(c)*(D.top||1));ls*=Math.pow(.002,dt);
  c.vel.copy(f.multiplyScalar(fs).add(r.multiplyScalar(ls)));c.root.position.addScaledVector(c.vel,dt);c.speed=c.vel.length();
 }
 function loseWing(c){c.wingOff=true;c.fw.forEach(m=>m.visible=false);if(c.player){pitMsgT=2.6;$("pit").style.display="block";$("pit").innerHTML="FRONT WING LOST!<small>SLOWER TOP SPEED • BOX FOR A NEW ONE (LONGER STOP)</small>";}}
@@ -450,13 +451,14 @@ function minimap(){
 let ac,o1,g1,muted=false;
 function aud(){if(ac){if(ac.state==="suspended")ac.resume();return}try{ac=new(window.AudioContext||window.webkitAudioContext)();o1=ac.createOscillator();const f=ac.createBiquadFilter();g1=ac.createGain();o1.type="triangle";f.type="lowpass";f.frequency.value=700;g1.gain.value=.0001;o1.connect(f);f.connect(g1);g1.connect(ac.destination);o1.start();}catch(e){}}
 function audio(){if(!ac)return;const s=clamp(player.speed/MAXV,0,1),t=ac.currentTime;o1.frequency.setTargetAtTime(45+s*260,t,.08);g1.gain.setTargetAtTime(muted?.0001:started?.008+s*.03:.003,t,.1);}
-const DIFF={semi:{n:"SEMI-PRO",sk:[.9,.95],al:135,br:100,adj:[.98,1.05],st:2.2,err:.02,race:1.03},pro:{n:"PRO",sk:[.98,1.01],al:168,br:115,adj:[.99,1.09],st:2.8,err:.012,race:1.05},robot:{n:"ROBOT",sk:[1.01,1.03],al:210,br:130,adj:[1,1.13],st:3.4,err:.004,race:1.08},expert:{n:"EXPERT MASTERCLASS",sk:[1.03,1.05],al:235,br:150,adj:[1.02,1.18],st:4,err:0,race:1.12}};
+const DIFF={semi:{n:"SEMI-PRO",sk:[.9,.95],al:135,br:100,adj:[.98,1.05],st:2.2,err:.02,race:1.03},pro:{n:"PRO",sk:[.98,1.01],al:168,br:115,adj:[.99,1.09],st:2.8,err:.012,race:1.05},robot:{n:"ROBOT",sk:[1.01,1.03],al:210,br:130,adj:[1,1.13],st:3.4,err:.004,race:1.08},expert:{n:"EXPERT MASTERCLASS",sk:[1.03,1.05],al:235,br:150,adj:[1.02,1.18],st:4,err:0,race:1.12},misery:{n:"MISERY",sk:[1.05,1.07],al:270,br:170,adj:[1.04,1.21],st:4.8,err:0,race:1.16,acc:1.12,top:1.02}};
 let D=DIFF.pro,dk="pro",rnd=0,tot={},paused=true,ovMode="",ROUNDS=24,pick=24,pz=false,single=false,pitMsgT=0,pitGoT=0,quali=false,gridPos=null,engT=-1,ef=[];const PTS=[25,18,15,12,10,8,6,4,2,1],ov=$("ov");
 const hx=i=>tc[i][0].toString(16).padStart(6,"0");
 function svSave(){if(single||MP)return;try{localStorage.setItem("htChamp",JSON.stringify({dk,rnd,tot,R:ROUNDS,pd:codes[0],ef}))}catch(e){}}
 function menu(){
  if(MP)mpLeave();ovMode="menu";paused=true;single=false;let sv=null;try{sv=JSON.parse(localStorage.getItem("htChamp")||"null")}catch(e){}
  if(sv&&!(DIFF[sv.dk]&&sv.rnd<(sv.R||24)))sv=null;
+ if(sv&&sv.tot)Object.keys(sv.tot).forEach(k=>{if(!CAN.codes.includes(k))delete sv.tot[k];});
  ov.style.display="flex";
  ov.innerHTML='<div class="card"><h1>HYPERTRACK</h1><div class="sub">2026 WORLD CHAMPIONSHIP • 5 LAPS PER RACE • PIT STOP REQUIRED</div><div class="sub">SLAM INTO A WALL OR ANOTHER CAR AT HIGH SPEED AND YOU ARE OUT, AI TOO. TAPS ARE FINE</div><div><button id="sg">SINGLE RACE</button><button id="tb">TUTORIAL (4)</button></div><div class="sub">MULTIPLAYER</div><div><button id="mh">HOST LOBBY</button> <input id="mjc" maxlength="5" inputmode="numeric" placeholder="CODE" style="width:110px;padding:11px;font-size:16px;border-radius:8px;border:0;text-align:center;background:#1b1e24;color:#fff;letter-spacing:4px"> <button id="mj">JOIN FRIEND</button></div><div class="sub" id="mst"></div><div class="sub">OR PLAY THE CHAMPIONSHIP: SEASON LENGTH</div><div>'+[6,12,24].map(n=>'<button data-r="'+n+'">'+n+' RACES</button>').join("")+'</div><div class="sub">SELECT AI DIFFICULTY TO START</div><div>'+Object.keys(DIFF).map(k=>'<button data-d="'+k+'">'+DIFF[k].n+'</button>').join("")+'</div>'+(sv?'<div><button id="cont">CONTINUE: ROUND '+(sv.rnd+1)+' • '+DIFF[sv.dk].n+'</button></div>':'')+'</div>';
  ov.querySelectorAll("button[data-d]").forEach(b=>b.onclick=()=>startChamp(b.dataset.d,0,{},pick));
@@ -644,7 +646,7 @@ function standings(q,gain){
  $("nx").onclick=MP?mpNextBtn(fin):(fin?menu:nextRace);
 }
 const clock=new THREE.Clock();
-const NAT={VER:"nl",NOR:"gb",LEC:"mc",RUS:"gb",ALO:"es",GAS:"fr",ALB:"th",LAW:"nz",HUL:"de",BEA:"gb",BOT:"fi",TSU:"jp"},SUR={VER:"VERSTAPPEN",NOR:"NORRIS",LEC:"LECLERC",RUS:"RUSSELL",ALO:"ALONSO",GAS:"GASLY",ALB:"ALBON",LAW:"LAWSON",HUL:"HULKENBERG",BEA:"BEARMAN",BOT:"BOTTAS",TSU:"TSUNODA"};
+const NAT={VER:"nl",NOR:"gb",LEC:"mc",RUS:"gb",ALO:"es",GAS:"fr",ALB:"th",LAW:"nz",HUL:"de",BEA:"gb",BOT:"fi"},SUR={VER:"VERSTAPPEN",NOR:"NORRIS",LEC:"LECLERC",RUS:"RUSSELL",ALO:"ALONSO",GAS:"GASLY",ALB:"ALBON",LAW:"LAWSON",HUL:"HULKENBERG",BEA:"BEARMAN",BOT:"BOTTAS"};
 const NN={nl:"THE NETHERLANDS",gb:"THE UNITED KINGDOM",mc:"MONACO",es:"SPAIN",fr:"FRANCE",th:"THAILAND",nz:"NEW ZEALAND",de:"GERMANY",fi:"FINLAND",jp:"JAPAN"};
 /* simplified melodies [midi note, beats] played with Web Audio */
 const ANT={gb:[[60,1],[60,1],[62,1],[59,1.5],[60,.5],[62,1],[64,1],[64,1],[65,1],[64,1.5],[62,.5],[60,1],[62,1],[60,.5],[59,.5],[60,2]],
@@ -711,27 +713,115 @@ function podium(q,cb){
   if(t>dur)end();else requestAnimationFrame(tick);};
  tick();
 }
+/* ================= PeerJS multiplayer =================
+   Star topology: the host's PeerJS ID is MP_PRE + the 5 digit lobby code; guests connect to it and the host relays
+   every presence patch (lobby settings, race state, ready flags) to the other guests. No custom backend is used. */
+const MP_PRE="ht",MP_MAX=CAN.codes.length,MP_BEAT=2000,MP_DEAD=12000;let MPBUSY=false;
+const MP_OPTS={debug:1,host:"0.peerjs.com",port:443,path:"/",secure:true,config:{iceServers:[{urls:"stun:stun.l.google.com:19302"},{urls:"stun:stun1.l.google.com:19302"},{urls:"stun:stun2.l.google.com:19302"},{urls:"stun:global.stun.twilio.com:3478"},{urls:["turn:openrelay.metered.ca:80","turn:openrelay.metered.ca:443","turn:openrelay.metered.ca:443?transport=tcp"],username:"openrelayproject",credential:"openrelayproject"}]}};
 function mpHumans(){return MP?MP.r.peers().filter(p=>p.kind==="viewer"):[];}
-function mpMe(){const p=MP&&MP.r.peers().find(x=>x.isMe&&x.sameTab);return p?p.peer:null;}
+function mpMe(){return MP?MP.r.id:null;}
+function mpRacers(){return MP&&MP.asg?mpHumans().filter(p=>Object.prototype.hasOwnProperty.call(MP.asg,p.peer)):mpHumans();}
 function mpAssign(){const ps=mpHumans().slice().sort((a,b)=>(b.presence.host?1:0)-(a.presence.host?1:0)||(a.peer<b.peer?-1:1)),used=new Set(),out={};
  ps.forEach(p=>{let d=p.presence.drv;if(!(d>=0)||used.has(d)){d=0;while(used.has(d))d++;}used.add(d);out[p.peer]=d;});return out;}
-function mpLeave(){try{if(MP.un)MP.un();MP.r.leave();}catch(e){}MP=null;cars.forEach(c=>{c.remote=false;});}
+function mpLeave(){const m=MP;MP=null;if(m&&m.r){try{m.r.leave();}catch(e){}}cars.forEach(c=>{c.remote=false;c.peer=null;});}
+function mpMsg(m){const e=$("mst");if(e)e.textContent=m;}
+function mpAbort(msg){mpLeave();cid++;quali=false;done=false;pz=false;gridPos=null;cars.forEach(c=>{c.out=false;c.root.visible=true;});$("lb").style.display="";$("qb").style.display="none";$("msg").innerHTML="";$("cd").textContent="";menu();mpMsg(msg);}
+function mpDropCar(id){const c=cars.find(x=>x.remote&&x.peer===id);if(!c)return;c.remote=false;c.peer=null;const s=c.speed||0;c.vel.set(-Math.sin(c.yaw)*s,0,-Math.cos(c.yaw)*s);}
+function mpErrText(e,host){const t=(e&&e.type)||"";
+ if(t==="nolib")return"MULTIPLAYER LIBRARY (PEERJS) FAILED TO LOAD. CHECK YOUR CONNECTION AND RELOAD THE PAGE.";
+ if(t==="peer-unavailable")return"LOBBY NOT FOUND. CHECK THE 5 DIGIT CODE.";
+ if(t==="timeout")return host?"PEERJS SERVER DID NOT ANSWER IN TIME. IT MAY BE BLOCKED OR BUSY. TRY AGAIN OR OPEN THE GAME OUTSIDE AN EMBEDDED PREVIEW.":"COULD NOT CONNECT TO THE HOST. CHECK THE CODE AND TRY AGAIN (SOME NETWORKS BLOCK PEER TO PEER).";
+ if(t==="full")return"THAT LOBBY IS FULL.";
+ if(t==="codes")return"COULD NOT GET A FREE LOBBY CODE. TRY AGAIN.";
+ if(t==="network"||t==="server-error"||t==="socket-error"||t==="socket-closed")return"COULD NOT REACH THE PEERJS SERVER ("+t.toUpperCase()+"). CHECK YOUR INTERNET, AND OPEN THE GAME FROM A NORMAL FILE OR WEBSITE, NOT AN EMBEDDED PREVIEW.";
+ if(t==="browser-incompatible")return"THIS BROWSER DOES NOT SUPPORT WEBRTC.";
+ return"MULTIPLAYER ERROR"+(t?": "+t.toUpperCase():"")+".";}
+/* Creates the PeerJS link. Exposes the small presence API the rest of the game uses: id, peers(), presence(patch), leave(). */
+function mpNet(code,isHost,ev){
+ return new Promise((resolve,reject)=>{
+  const PC=window.Peer||(window.peerjs&&window.peerjs.Peer);
+  if(!PC){reject({type:"nolib"});return;}
+  let ready=false,peer=null,to=0;
+  const net={code,isHost,id:null,st:{},conns:{},seen:{},last:Date.now(),dead:false,hc:null,nt:0,bt:0,
+   peers(){return Object.keys(net.st).map(id=>({peer:id,kind:"viewer",isMe:id===net.id,sameTab:id===net.id,presence:net.st[id]}));},
+   notify(){if(net.nt||net.dead)return;net.nt=setTimeout(()=>{net.nt=0;if(!net.dead)ev.change();},0);},
+   merge(id,d){const o=net.st[id]||(net.st[id]={});for(const k in d)o[k]=d[k];},
+   tx(c,m){try{if(c&&c.open)c.send(m);}catch(e){}},
+   bcast(m,except){for(const id in net.conns)if(id!==except)net.tx(net.conns[id],m);},
+   presence(d){if(net.dead)return Promise.resolve();net.merge(net.id,d);if(isHost)net.bcast({t:"p",id:net.id,d});else net.tx(net.hc,{t:"p",d});net.notify();return Promise.resolve();},
+   drop(id){const c=net.conns[id];if(!c&&!net.st[id])return;delete net.conns[id];delete net.st[id];delete net.seen[id];try{if(c)c.close();}catch(e){}net.bcast({t:"l",id});ev.left(id);net.notify();},
+   leave(){if(net.dead)return;net.dead=true;clearInterval(net.bt);clearTimeout(net.nt);clearTimeout(to);
+    for(const id in net.conns)try{net.conns[id].close();}catch(e){}
+    try{if(net.hc)net.hc.close();}catch(e){}try{if(peer)peer.destroy();}catch(e){}}
+  };
+  const fail=e=>{if(ready){if(!net.dead)ev.close(mpErrText(e,isHost));}else if(!net.dead){net.leave();reject(e);}};
+  to=setTimeout(()=>{if(!ready)fail({type:"timeout"});},20000);
+  net.bt=setInterval(()=>{const now=Date.now();
+   if(isHost){net.bcast({t:"h"});for(const id in net.conns)if(now-net.seen[id]>MP_DEAD)net.drop(id);}
+   else{net.tx(net.hc,{t:"h"});if(ready&&!net.dead&&now-net.last>MP_DEAD)ev.close("LOST CONNECTION TO THE HOST.");}},MP_BEAT);
+  const runtimeErr=e=>{if(net.dead)return;if(peer&&peer.destroyed)ev.close(mpErrText(e,isHost));};
+  if(isHost){
+   peer=new PC(MP_PRE+code,MP_OPTS);
+   peer.on("open",id=>{if(net.dead)return;net.id=id;net.st[id]={host:true,drv:-1,cfg:{mode:"single",track:0,rounds:12,dk:"pro"}};ready=true;clearTimeout(to);resolve(net);});
+   peer.on("connection",conn=>{
+    const init=()=>{const id=conn.peer;if(net.dead)return;
+     if(net.conns[id]||Object.keys(net.st).length>=MP_MAX){net.tx(conn,{t:"full"});setTimeout(()=>{try{conn.close();}catch(e){}},400);return;}
+     net.conns[id]=conn;net.seen[id]=Date.now();net.st[id]={host:false,drv:-1};
+     net.tx(conn,{t:"w",s:net.st});net.bcast({t:"p",id,d:net.st[id]},id);net.notify();};
+    if(conn.open)init();else conn.on("open",init);
+    conn.on("data",m=>{const id=conn.peer;if(!m||net.dead||net.conns[id]!==conn)return;net.seen[id]=Date.now();
+     if(m.t==="p"&&m.d&&typeof m.d==="object"){const d=Object.assign({},m.d);delete d.host;net.merge(id,d);net.bcast({t:"p",id,d},id);net.notify();}});
+    const gone=()=>{if(net.conns[conn.peer]===conn)net.drop(conn.peer);};
+    conn.on("close",gone);conn.on("error",gone);
+   });
+   peer.on("error",e=>{if(!ready)fail(e);else runtimeErr(e);});
+   peer.on("disconnected",()=>{if(!ready){fail({type:"network"});return;}if(net.dead)return;let n=0;const t=setInterval(()=>{if(net.dead||peer.destroyed||!peer.disconnected||++n>10){clearInterval(t);return;}try{peer.reconnect();}catch(e){}},3000);});
+  }else{
+   peer=new PC(undefined,MP_OPTS);
+   peer.on("open",id=>{if(net.dead)return;net.id=id;if(ev.status)ev.status("CONTACTING HOST...");
+    const c=peer.connect(MP_PRE+code,{reliable:true,serialization:"json"});net.hc=c;
+    c.on("data",m=>{if(!m||net.dead)return;net.last=Date.now();
+     if(m.t==="w"){net.st=m.s||{};if(!ready){ready=true;clearTimeout(to);resolve(net);}}
+     else if(m.t==="full"){fail({type:"full"});}
+     else if(m.t==="p"&&m.id&&m.d){net.merge(m.id,m.d);net.notify();}
+     else if(m.t==="l"){delete net.st[m.id];ev.left(m.id);net.notify();}});
+    const gone=()=>{if(net.dead)return;if(ready)ev.close("THE HOST LEFT THE LOBBY.");else fail({type:"peer-unavailable"});};
+    c.on("close",gone);c.on("error",gone);
+   });
+   peer.on("error",e=>{if(!ready)fail(e);else runtimeErr(e);});
+  }
+ });
+}
 async function mpJoin(code,isHost){
- const st=m=>{const e=$("mst");if(e)e.textContent=m;};let room=null;
- try{room=(typeof claude!=="undefined")?await claude.use("room"):null;}catch(e){}
- if(!room){st("MULTIPLAYER IS NOT AVAILABLE HERE. OPEN THE PUBLISHED PAGE WHILE SIGNED IN.");return;}
- let nr;try{nr=await room.join("ht"+code);}catch(e){st("COULD NOT JOIN: "+((e&&e.code)||"ERROR"));return;}
- MP={r:nr,code,host:isHost,tok:"",lastStart:null,lastNx:null,sig:""};
- MP.un=nr.onPeers(onMP);
- await nr.presence(Object.assign({host:isHost,drv:-1},isHost?{cfg:{mode:"single",track:0,rounds:12,dk:"pro"}}:{}));
- if(!isHost){let ok=false;for(let k=0;k<20&&!ok;k++){await new Promise(z=>setTimeout(z,200));ok=mpHumans().some(p=>p.presence.host);}
-  if(!ok){mpLeave();st("LOBBY NOT FOUND. CHECK THE 5 DIGIT CODE.");return;}}
- mpLobby();
+ if(MPBUSY||MP)return;MPBUSY=true;let net=null;
+ const ev={status:mpMsg,change:()=>onMP(),left:id=>mpDropCar(id),close:m=>{if(MP&&MP.r===net)mpAbort(m);else if(net)net.leave();}};
+ try{
+  mpMsg(isHost?"OPENING LOBBY...":"CONNECTING TO LOBBY...");
+  if(isHost){
+   for(let k=0;k<6&&!net;k++){
+    try{net=await mpNet(code,true,ev);}
+    catch(e){if(e&&e.type==="unavailable-id"){code=String(Math.floor(10000+Math.random()*90000));continue;}throw e;}
+   }
+   if(!net)throw{type:"codes"};
+  }else{
+   for(let k=0;k<2&&!net;k++){
+    try{net=await mpNet(code,false,ev);}
+    catch(e){if(k===0&&e&&e.type==="peer-unavailable"){mpMsg("HOST NOT FOUND YET, RETRYING...");await new Promise(z=>setTimeout(z,1500));continue;}throw e;}
+   }
+  }
+  MP={r:net,code,host:isHost,tok:"",lastStart:null,lastNx:null,sig:"",asg:null,late:false};
+  const hp=mpHumans().find(p=>p.presence.host);
+  if(hp){MP.lastStart=hp.presence.start?hp.presence.start.id:null;MP.lastNx=hp.presence.nx?hp.presence.nx.id:null;}
+  mpMsg("");mpLobby();
+ }catch(e){if(net)net.leave();net=null;mpMsg(mpErrText(e,isHost));}
+ finally{MPBUSY=false;}
 }
 function onMP(){
- if(!MP)return;const hp=mpHumans().find(p=>p.presence.host);
- if(!hp){if(!MP.host&&ovMode==="lobby"){mpLeave();menu();const e=$("mst");if(e)e.textContent="THE HOST LEFT THE LOBBY";}return;}
- const st=hp.presence.start;if(st&&st.id!==MP.lastStart&&ovMode==="lobby"){MP.lastStart=st.id;mpBegin(st);return;}
+ if(!MP)return;const hp=mpHumans().find(p=>p.presence.host);if(!hp)return;
+ const st=hp.presence.start;
+ if(st&&st.id!==MP.lastStart&&ovMode==="lobby"){MP.lastStart=st.id;
+  if(st.asg&&!Object.prototype.hasOwnProperty.call(st.asg,mpMe())){MP.late=true;MP.sig="";mpLobby();return;}
+  mpBegin(st);return;}
  const nx=hp.presence.nx;if(nx&&nx.id!==MP.lastNx){MP.lastNx=nx.id;if(ovMode==="next"){rnd=nx.rnd;nextRace();return;}}
  if(ovMode==="lobby")mpLobby();
 }
@@ -743,16 +833,16 @@ function mpLobby(){
  const row=p=>'<tr'+(p.peer===me?' class="me"':'')+'><td>'+(p.presence.host?'HOST':'PLAYER')+(p.peer===me?' (YOU)':'')+'</td><td>'+(p.peer===me?'<select id="mpd" style="background:#111;color:#fff;border-radius:6px;padding:4px">'+opt(CAN.codes.map((c,i)=>[i,c+' • '+CAN.T[i]]),a[p.peer])+'</select>':CAN.codes[a[p.peer]]+' • '+CAN.T[a[p.peer]])+'</td></tr>';
  const host=MP.host;
  ov.innerHTML='<div class="card"><div class="sub">MULTIPLAYER LOBBY</div><h1 style="font-size:46px;letter-spacing:10px">'+MP.code+'</h1><div class="sub">GIVE THIS CODE TO YOUR FRIEND (JOIN FRIEND ON THE MAIN MENU)</div><table>'+ps.map(row).join("")+'</table>'+
-  (host?'<div class="sub">RACE SETTINGS (HOST)</div><div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center"><select id="mpm">'+opt([["single","SINGLE RACE"],["champ","CHAMPIONSHIP"]],cfg.mode)+'</select><select id="mpt"'+(cfg.mode==="single"?'':' disabled')+'>'+opt(tracks.map((t,i)=>[i,t[0]]),cfg.track)+'</select><select id="mpr"'+(cfg.mode==="champ"?'':' disabled')+'>'+opt([[6,"6 RACES"],[12,"12 RACES"],[24,"24 RACES"]],cfg.rounds)+'</select><select id="mpf">'+opt(Object.keys(DIFF).map(k=>[k,DIFF[k].n]),cfg.dk)+'</select></div><button id="mps"'+(ps.length>=2?'':' disabled style="opacity:.4"')+'>START '+(cfg.mode==="single"?'RACE':'CHAMPIONSHIP')+'</button>'+(ps.length<2?'<div class="sub">WAITING FOR AT LEAST ONE MORE PLAYER</div>':''):'<div class="sub">HOST SETTINGS: '+(cfg.mode==="single"?'SINGLE RACE • '+tracks[cfg.track][0]:'CHAMPIONSHIP • '+cfg.rounds+' RACES')+' • '+DIFF[cfg.dk].n+'</div><div class="sub">WAITING FOR THE HOST TO START</div>')+
+  (host?'<div class="sub">RACE SETTINGS (HOST)</div><div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center"><select id="mpm">'+opt([["single","SINGLE RACE"],["champ","CHAMPIONSHIP"]],cfg.mode)+'</select><select id="mpt"'+(cfg.mode==="single"?'':' disabled')+'>'+opt(tracks.map((t,i)=>[i,t[0]]),cfg.track)+'</select><select id="mpr"'+(cfg.mode==="champ"?'':' disabled')+'>'+opt([[6,"6 RACES"],[12,"12 RACES"],[24,"24 RACES"]],cfg.rounds)+'</select><select id="mpf">'+opt(Object.keys(DIFF).map(k=>[k,DIFF[k].n]),cfg.dk)+'</select></div><button id="mps"'+(ps.length>=2?'':' disabled style="opacity:.4"')+'>START '+(cfg.mode==="single"?'RACE':'CHAMPIONSHIP')+'</button>'+(ps.length<2?'<div class="sub">WAITING FOR AT LEAST ONE MORE PLAYER</div>':''):'<div class="sub">HOST SETTINGS: '+(cfg.mode==="single"?'SINGLE RACE • '+tracks[cfg.track][0]:'CHAMPIONSHIP • '+cfg.rounds+' RACES')+' • '+DIFF[cfg.dk].n+'</div>'+(MP.late?'<div class="sub">A RACE IS IN PROGRESS. YOU JOIN WHEN THE HOST STARTS THE NEXT ONE.</div>':'')+'<div class="sub">WAITING FOR THE HOST TO START</div>')+
   '<div><button id="mpl">LEAVE LOBBY</button></div></div>';
  $("mpd").onchange=()=>MP.r.presence({drv:+$("mpd").value});$("mpl").onclick=menu;
- if(host){const set=()=>MP.r.presence({cfg:{mode:$("mpm").value,track:+$("mpt").value,rounds:+$("mpr").value,dk:$("mpf").value}});["mpm","mpt","mpr","mpf"].forEach(i=>{$(i).onchange=set;});$("mps").onclick=()=>{const c0=MP.r.peers().find(p=>p.isMe&&p.sameTab);MP.r.presence({start:{id:Date.now(),cfg:(c0&&c0.presence.cfg)||cfg}});};}
+ if(host){const set=()=>MP.r.presence({cfg:{mode:$("mpm").value,track:+$("mpt").value,rounds:+$("mpr").value,dk:$("mpf").value}});["mpm","mpt","mpr","mpf"].forEach(i=>{$(i).onchange=set;});$("mps").onclick=()=>{const c0=MP.r.peers().find(p=>p.isMe&&p.sameTab);MP.r.presence({start:{id:Date.now(),cfg:(c0&&c0.presence.cfg)||cfg,asg:mpAssign()}});};}
 }
 function mpBegin(st){
  const cfg=st.cfg;MP.tok=""+st.id;single=cfg.mode==="single";dk=cfg.dk;D=DIFF[dk];ROUNDS=single?24:cfg.rounds;rnd=single?cfg.track:0;tot={};ef=(!single&&ROUNDS>=12)?genEf():[];cid++;
- const a=mpAssign(),me=mpMe();applyDriver(a[me]>=0?a[me]:0);
+ const a=st.asg||mpAssign(),me=mpMe();MP.asg=a;MP.late=false;applyDriver(a[me]>=0?a[me]:0);
  cars.forEach(c=>{c.remote=false;c.peer=null;});
- for(const pid in a){if(pid!==me){const c=cars[codes.indexOf(CAN.codes[a[pid]])];if(c){c.remote=true;c.peer=pid;}}}
+ for(const pid in a){if(pid!==me&&mpHumans().some(p=>p.peer===pid)){const c=cars[codes.indexOf(CAN.codes[a[pid]])];if(c){c.remote=true;c.peer=pid;}}}
  codes.forEach(cd=>{tot[cd]=0;});MP.r.presence({rdy:null,qt:null,qtok:null,grid:null,gtok:null,car:null});nextRace();
 }
 function mpLobbyBack(){if(!MP){menu();return;}quali=false;done=false;gridPos=null;cars.forEach(c=>{c.out=false;c.root.visible=true;});MP.r.presence({rdy:null,qt:null,qtok:null,grid:null,gtok:null,car:null});MP.sig="";ovMode="";mpLobby();}
@@ -762,10 +852,10 @@ function mpSync(c,dt){const pe=MP&&MP.r.peers().find(x=>x.peer===c.peer),a=pe&&p
 function mpWait(title,sub){ovMode="mpwait";paused=true;ov.style.display="flex";ov.innerHTML='<div class="card"><h2>'+title+'</h2><div class="sub">'+sub+'</div></div>';}
 function mpEndQuali(crash){
  const tok=MP.tok+"_q"+rnd;MP.r.presence({qt:crash?1e9:rt,qtok:tok,grid:null,gtok:null});mpWait("WAITING FOR OTHER PLAYERS","THEIR QUALIFYING LAPS ARE STILL RUNNING");
- const t0=performance.now(),iv=setInterval(()=>{if(!MP){clearInterval(iv);return;}const ps=mpHumans(),all=ps.every(p=>p.presence.qtok===tok);
+ const t0=performance.now(),iv=setInterval(()=>{if(!MP){clearInterval(iv);return;}const ps=mpRacers(),all=ps.every(p=>p.presence.qtok===tok);
   if(MP.host){if(all||performance.now()-t0>60000){clearInterval(iv);cars.forEach(c=>{if(c.remote){const p=ps.find(x=>x.peer===c.peer);c.qt=p&&p.presence.qtok===tok?p.presence.qt:1e9;}});
    endQuali(crash,true);const order=[];cars.forEach((c,i)=>{order[gridPos[i]]=c.code;});MP.r.presence({grid:order,gtok:tok});}}
-  else{const hp=ps.find(p=>p.presence.host);if(hp&&hp.presence.gtok===tok){clearInterval(iv);const order=hp.presence.grid;gridPos=[];order.forEach((cd,k)=>{gridPos[codes.indexOf(cd)]=k;});mpGuestGrid(order);}}},300);
+  else{const hp=mpHumans().find(p=>p.presence.host);if(hp&&hp.presence.gtok===tok){clearInterval(iv);const order=hp.presence.grid;gridPos=[];order.forEach((cd,k)=>{gridPos[codes.indexOf(cd)]=k;});mpGuestGrid(order);}}},300);
 }
 function mpGuestGrid(order){
  quali=false;cars.forEach((c,i)=>{if(i){c.out=false;c.root.visible=true;}});$("lb").style.display="";$("qb").style.display="none";
@@ -775,7 +865,7 @@ function mpGuestGrid(order){
 }
 function mpReady(){
  const tok=MP.tok+"_r"+rnd;mpWait("WAITING FOR PLAYERS","THE RACE STARTS WHEN EVERYONE HAS CHOSEN TYRES");MP.r.presence({rdy:tok,car:null});
- const t0=performance.now(),iv=setInterval(()=>{if(!MP){clearInterval(iv);return;}if(mpHumans().every(p=>p.presence.rdy===tok)||performance.now()-t0>45000){clearInterval(iv);lightsOut=4.7+((parseInt(tok.replace(/\D/g,"").slice(-4))||0)%1000)/1000*1.1;ov.style.display="none";ovMode="";paused=false;}},250);
+ const t0=performance.now(),iv=setInterval(()=>{if(!MP){clearInterval(iv);return;}if(mpRacers().every(p=>p.presence.rdy===tok)||performance.now()-t0>45000){clearInterval(iv);lightsOut=4.7+((parseInt(tok.replace(/\D/g,"").slice(-4))||0)%1000)/1000*1.1;ov.style.display="none";ovMode="";paused=false;}},250);
 }
 function mpNextBtn(fin){if(fin)return mpLobbyBack;if(MP.host)return()=>MP.r.presence({nx:{id:Date.now(),rnd}});setTimeout(()=>{const b=$("nx");if(b)b.textContent="WAITING FOR THE HOST";},0);return()=>{};}
 function lights(dt){
@@ -805,5 +895,6 @@ if("ontouchstart" in window||navigator.maxTouchPoints>0){
  const l=document.createElement("div"),r=document.createElement("div");l.append(tb("◀","KeyA"),tb("▶","KeyD"));r.append(tb("▼","KeyS"),tb("▲","KeyW"));bar.append(l,r);document.body.append(bar);$("pb").style.bottom="190px";
 }
 document.querySelectorAll("#pb button").forEach(b=>{b.innerHTML=tyreIcon(b.dataset.t,56);b.onclick=()=>callPit(b.dataset.t);});
+addEventListener("pagehide",()=>{try{mpLeave();}catch(e){}});
 setTrack(0);showTutorial(menu);loop();
 </script></body></html>
